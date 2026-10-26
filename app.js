@@ -16,8 +16,8 @@
   service_roleキーやsecretキーは絶対に設定しないでください。
 */
 
-const SUPABASE_URL = "ここにProject URLを入力";
-const SUPABASE_PUBLISHABLE_KEY = "ここにPublishable keyを入力";
+const SUPABASE_URL = "https://qwswjasrorhstzueixcr.supabase.co/rest/v1/";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_WarHJF6XeJEaAqhmu9djFA_puVUA4Br";
 
 /* 初期設定 */
 const INITIAL_POINTS = 5000;
