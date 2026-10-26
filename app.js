@@ -21,7 +21,7 @@ const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_WarHJF6XeJEaAqhmu9djFA_puVUA4Br
 
 /* 初期設定 */
 const INITIAL_POINTS = 5000;
-const REFRESH_INTERVAL = 60000;
+const REFRESH_INTERVAL = 30000;
 
 let db = null;
 let currentUser = null;
