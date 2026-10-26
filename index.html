@@ -1,951 +1,311 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="robots" content="noindex, nofollow">
-<meta name="theme-color" content="#101827">
-
-<title>契約プラン | Annual Plan System</title>
-
-<style>
-:root {
-  --bg: #0b1120;
-  --panel: #151f32;
-  --panel2: #1b2940;
-  --text: #f2f5fb;
-  --muted: #a8b5ca;
-  --accent: #64a8ff;
-  --border: rgba(255,255,255,.11);
-  --green: #70dfb0;
-}
-
-* {
-  box-sizing: border-box;
-}
-
-html {
-  scroll-behavior: smooth;
-}
-
-body {
-  margin: 0;
-  background:
-    radial-gradient(ellipse at 10% 0%, #19335b 0%, transparent 45%),
-    radial-gradient(ellipse at 100% 30%, #18294b 0%, transparent 40%),
-    var(--bg);
-  color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont,
-    "Segoe UI", "Noto Sans JP", sans-serif;
-  line-height: 1.8;
-}
-
-a {
-  color: var(--accent);
-}
-
-header {
-  border-bottom: 1px solid var(--border);
-  background: rgba(11,17,32,.85);
-  backdrop-filter: blur(16px);
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-
-.nav {
-  max-width: 1120px;
-  margin: auto;
-  padding: 15px 22px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 20px;
-}
-
-.logo {
-  font-size: 17px;
-  font-weight: 800;
-  letter-spacing: 2px;
-}
-
-.logo span {
-  color: var(--accent);
-}
-
-nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 18px;
-}
-
-nav a {
-  color: var(--muted);
-  text-decoration: none;
-  font-size: 13px;
-}
-
-nav a:hover {
-  color: white;
-}
-
-.container {
-  max-width: 1120px;
-  padding: 0 22px;
-  margin: auto;
-}
-
-.hero {
-  padding: 85px 0 55px;
-}
-
-.eyebrow {
-  display: inline-block;
-  border: 1px solid rgba(100,168,255,.4);
-  background: rgba(100,168,255,.1);
-  color: #9ac7ff;
-  padding: 5px 13px;
-  border-radius: 30px;
-  font-size: 12px;
-  letter-spacing: 1px;
-}
-
-h1 {
-  font-size: clamp(34px, 6vw, 60px);
-  line-height: 1.25;
-  letter-spacing: -1.5px;
-  margin: 24px 0 18px;
-}
-
-h1 span {
-  color: var(--accent);
-}
-
-.hero p {
-  max-width: 650px;
-  color: var(--muted);
-  font-size: 16px;
-}
-
-.hero-buttons {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-top: 28px;
-}
-
-.btn {
-  display: inline-flex;
-  justify-content: center;
-  align-items: center;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 12px 20px;
-  background: var(--panel2);
-  color: white;
-  text-decoration: none;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.btn.primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #071326;
-}
-
-.btn:hover {
-  filter: brightness(1.12);
-}
-
-section {
-  padding: 35px 0 55px;
-  scroll-margin-top: 85px;
-}
-
-.section-head {
-  margin-bottom: 25px;
-}
-
-.section-head h2 {
-  font-size: 27px;
-  margin: 0 0 5px;
-}
-
-.section-head p {
-  color: var(--muted);
-  margin: 0;
-  font-size: 14px;
-}
-
-.grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 17px;
-}
-
-.card {
-  background: linear-gradient(
-    145deg,
-    rgba(27,41,64,.98),
-    rgba(17,27,44,.98)
-  );
-  border: 1px solid var(--border);
-  border-radius: 17px;
-  padding: 23px;
-  transition: transform .2s, border-color .2s;
-}
-
-.card:hover {
-  transform: translateY(-3px);
-  border-color: rgba(100,168,255,.55);
-}
-
-.card.selected {
-  border: 2px solid var(--accent);
-  padding: 22px;
-  background: linear-gradient(
-    145deg,
-    rgba(40,69,108,.75),
-    rgba(17,27,44,.98)
-  );
-}
-
-.rank {
-  font-size: 12px;
-  color: var(--accent);
-  letter-spacing: 2px;
-  font-weight: 800;
-}
-
-.card h3 {
-  font-size: 21px;
-  margin: 8px 0 3px;
-}
-
-.price {
-  font-size: 30px;
-  font-weight: 800;
-  margin: 12px 0 0;
-}
-
-.price small {
-  font-size: 13px;
-  font-weight: 400;
-  color: var(--muted);
-}
-
-.monthly {
-  color: var(--green);
-  font-size: 13px;
-  margin-top: 2px;
-}
-
-.card p {
-  font-size: 13px;
-  color: var(--muted);
-  min-height: 46px;
-}
-
-.select-plan {
-  display: block;
-  width: 100%;
-  margin-top: 15px;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: white;
-  padding: 10px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 700;
-}
-
-.selected .select-plan {
-  background: var(--accent);
-  color: #071326;
-  border-color: var(--accent);
-}
-
-.option-group {
-  margin-bottom: 30px;
-}
-
-.option-group h3 {
-  font-size: 18px;
-  margin-bottom: 13px;
-}
-
-.option-list {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.option {
-  display: flex;
-  align-items: flex-start;
-  gap: 13px;
-  padding: 17px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: rgba(21,31,50,.85);
-  cursor: pointer;
-}
-
-.option:has(input:checked) {
-  border-color: var(--accent);
-  background: rgba(45,78,120,.35);
-}
-
-.option input {
-  margin-top: 7px;
-  width: 18px;
-  height: 18px;
-  accent-color: var(--accent);
-  flex-shrink: 0;
-}
-
-.option-title {
-  display: block;
-  font-weight: 700;
-}
-
-.option-desc {
-  display: block;
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.option-price {
-  display: block;
-  margin-top: 5px;
-  color: var(--green);
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.notice {
-  background: rgba(100,168,255,.08);
-  border: 1px solid rgba(100,168,255,.23);
-  padding: 15px 18px;
-  border-radius: 12px;
-  color: var(--muted);
-  font-size: 13px;
-  margin-top: 20px;
-}
-
-.summary {
-  background: linear-gradient(145deg, #1a2c46, #101a2b);
-  border: 1px solid rgba(100,168,255,.45);
-  border-radius: 18px;
-  padding: 27px;
-  position: sticky;
-  bottom: 12px;
-  box-shadow: 0 15px 45px rgba(0,0,0,.25);
-  z-index: 5;
-}
-
-.summary-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 15px;
-}
-
-.summary h2 {
-  font-size: 19px;
-  margin: 0;
-}
-
-.total {
-  font-size: 35px;
-  font-weight: 850;
-  color: var(--green);
-}
-
-.total small {
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.summary-details {
-  border-top: 1px solid var(--border);
-  margin-top: 18px;
-  padding-top: 14px;
-  font-size: 14px;
-}
-
-.summary-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 15px;
-  margin: 5px 0;
-}
-
-.summary-row span:first-child {
-  color: var(--muted);
-}
-
-.summary-row strong {
-  text-align: right;
-}
-
-.rules {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 15px;
-}
-
-.rule {
-  border: 1px solid var(--border);
-  background: rgba(21,31,50,.8);
-  padding: 20px;
-  border-radius: 13px;
-}
-
-.rule h3 {
-  margin: 0 0 8px;
-  font-size: 16px;
-}
-
-.rule p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 13px;
-}
-
-footer {
-  border-top: 1px solid var(--border);
-  margin-top: 55px;
-  padding: 30px 0;
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.footer-inner {
-  display: flex;
-  justify-content: space-between;
-  gap: 20px;
-  flex-wrap: wrap;
-}
-
-@media (max-width: 800px) {
-  .grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 560px) {
-  .nav {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  nav {
-    gap: 14px;
-  }
-
-  .hero {
-    padding-top: 55px;
-  }
-
-  .grid,
-  .option-list,
-  .rules {
-    grid-template-columns: 1fr;
-  }
-
-  .card p {
-    min-height: 0;
-  }
-
-  .summary {
-    padding: 19px;
-  }
-
-  .total {
-    font-size: 29px;
-  }
-}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#10243a">
+  <title>STOCK POINT | 仮想株式市場</title>
+  <link rel="stylesheet" href="style.css">
+
+  <!-- Supabase公式JavaScriptライブラリ -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="app.js" defer></script>
 </head>
 
 <body>
+  <header class="topbar">
+    <a class="brand" href="#">
+      <span class="brand-mark">SP</span>
+      <span class="brand-text">
+        STOCK <strong>POINT</strong>
+        <small>VIRTUAL STOCK MARKET</small>
+      </span>
+    </a>
 
-<header>
-  <div class="nav">
-    <div class="logo">ANNUAL<span> PLAN</span></div>
-    <nav>
-      <a href="#plans">基本プラン</a>
-      <a href="#options">オプション</a>
-      <a href="#rules">利用規約</a>
-    </nav>
-  </div>
-</header>
-
-<main>
-
-<div class="container">
-
-  <section class="hero">
-    <div class="eyebrow">ANNUAL PLAN SYSTEM</div>
-
-    <h1>
-      自分に合った<br>
-      <span>契約プランを選ぶ。</span>
-    </h1>
-
-    <p>
-      年間契約プランと各種オプションを確認できます。
-      プランを選択すると、年間料金の合計が自動的に計算されます。
-    </p>
-
-    <div class="hero-buttons">
-      <a href="#plans" class="btn primary">プランを選択する →</a>
-      <a href="#options" class="btn">オプションを見る</a>
+    <div id="user-area" class="user-area hidden">
+      <span id="whoami"></span>
+      <button id="logout-btn" class="button button-ghost" type="button">
+        ログアウト
+      </button>
     </div>
-  </section>
+  </header>
 
-
-  <!-- 基本プラン -->
-
-  <section id="plans">
-    <div class="section-head">
-      <h2>01 / 基本契約プラン</h2>
-      <p>利用したいプランを1つ選択してください。</p>
+  <main class="container">
+    <div id="config-warning" class="notice warning hidden">
+      <strong>Supabaseの接続設定が必要です</strong>
+      <p>
+        app.js の SUPABASE_URL と SUPABASE_PUBLISHABLE_KEY に、
+        SupabaseのProject URLとPublishable keyを設定してください。
+      </p>
     </div>
 
-    <div class="grid" id="planGrid"></div>
-  </section>
+    <!-- ログイン画面 -->
+    <section id="auth-panel" class="auth-layout">
+      <div class="hero">
+        <p class="eyebrow">SIMULATED INVESTING</p>
+        <h1>
+          市場を読み、<br>
+          <span>資産を育てよう。</span>
+        </h1>
+        <p class="hero-copy">
+          2人で楽しむ仮想株式取引サービス。
+          架空企業の株式を売買して、資産の変化を確認しよう。
+        </p>
 
+        <div class="hero-pills">
+          <span>6銘柄</span>
+          <span>初期ポイント 5,000</span>
+          <span>実際のお金は不要</span>
+        </div>
 
-  <!-- オプション -->
+        <div class="hero-note">
+          <span class="note-icon">i</span>
+          このサイトは仮想取引専用です。実際のお金は使用しません。
+        </div>
+      </div>
 
-  <section id="options">
-    <div class="section-head">
-      <h2>02 / 年間オプション</h2>
-      <p>必要なオプションを選択してください。追加料金は年間料金です。</p>
-    </div>
+      <form id="login-form" class="card login-card">
+        <p class="eyebrow">MEMBER LOGIN</p>
+        <h2>ログイン</h2>
+        <p class="muted">登録済みのアカウントでログインしてください。</p>
 
-    <div class="option-group">
-      <h3>お出かけオプション</h3>
-      <div class="option-list" id="outingOptions"></div>
-    </div>
+        <label for="email">メールアドレス</label>
+        <input
+          id="email"
+          type="email"
+          autocomplete="username"
+          placeholder="メールアドレス"
+          required
+        >
 
-    <div class="option-group">
-      <h3>予定・交流オプション</h3>
-      <div class="option-list" id="serviceOptions"></div>
-    </div>
+        <label for="password">パスワード</label>
+        <input
+          id="password"
+          type="password"
+          autocomplete="current-password"
+          placeholder="パスワード"
+          required
+        >
 
-    <div class="notice">
-      岐阜県内のお出かけは無料です。
-      名古屋市内は年間1,200円、名古屋市を除く愛知県内は年間2,000円です。
-      地域別のお出かけオプションは、同時に複数選択しないでください。
-      交通費や施設利用料などの実費は含まれません。
-    </div>
-  </section>
+        <button class="button button-primary full" type="submit">
+          ログイン
+        </button>
 
+        <p id="login-message" class="form-message" role="status"></p>
 
-  <!-- 料金計算 -->
+        <p class="hint">
+          アカウントはSupabaseのAuthenticationで登録したものを使用します。
+        </p>
+      </form>
+    </section>
 
-  <section id="estimate">
-    <div class="summary">
-      <div class="summary-top">
+    <!-- ログイン後の画面 -->
+    <section id="app-panel" class="hidden">
+      <div class="welcome-row">
         <div>
-          <h2>年間契約料金の見積もり</h2>
-          <div style="color:var(--muted);font-size:13px;">
-            選択中のプランとオプション
+          <p class="eyebrow">YOUR PORTFOLIO</p>
+          <h1>マーケットダッシュボード</h1>
+          <p class="muted">
+            株価を確認して、購入・売却を行いましょう。
+          </p>
+        </div>
+
+        <div class="market-status">
+          <span class="status-dot"></span>
+          仮想市場
+          <span id="last-updated">読み込み中</span>
+        </div>
+      </div>
+
+      <!-- 資産サマリー -->
+      <section class="summary-grid">
+        <article class="summary-card">
+          <span>保有ポイント</span>
+          <strong id="cash-value">—</strong>
+          <small>売買に使用できるポイント</small>
+        </article>
+
+        <article class="summary-card">
+          <span>保有株式評価額</span>
+          <strong id="holdings-value">—</strong>
+          <small>現在株価 × 保有株数</small>
+        </article>
+
+        <article class="summary-card summary-accent">
+          <span>総資産</span>
+          <strong id="total-value">—</strong>
+          <small>ポイント＋保有株式評価額</small>
+        </article>
+
+        <article class="summary-card">
+          <span>損益（参考）</span>
+          <strong id="profit-value">—</strong>
+          <small>初期資産5,000ポイントとの比較</small>
+        </article>
+      </section>
+
+      <!-- 株価と注文 -->
+      <div class="main-grid">
+        <section class="card market-card">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">MARKET</p>
+              <h2>株価一覧</h2>
+            </div>
+            <button id="refresh-btn" class="button button-ghost" type="button">
+              更新
+            </button>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>銘柄</th>
+                  <th>現在株価</th>
+                  <th>前回比</th>
+                  <th>保有数</th>
+                  <th>売買</th>
+                </tr>
+              </thead>
+              <tbody id="stocks-body">
+                <tr>
+                  <td colspan="5" class="empty">読み込み中…</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="card trade-card">
+          <p class="eyebrow">PLACE AN ORDER</p>
+          <h2>株式を売買</h2>
+
+          <form id="trade-form">
+            <label for="trade-stock">銘柄</label>
+            <select id="trade-stock" required></select>
+
+            <div class="side-toggle">
+              <label>
+                <input type="radio" name="side" value="buy" checked>
+                <span>購入</span>
+              </label>
+              <label>
+                <input type="radio" name="side" value="sell">
+                <span>売却</span>
+              </label>
+            </div>
+
+            <label for="quantity">株数</label>
+            <input
+              id="quantity"
+              type="number"
+              min="1"
+              max="100000"
+              step="1"
+              value="1"
+              required
+            >
+
+            <div class="order-estimate">
+              <span>概算取引額</span>
+              <strong id="estimate">—</strong>
+            </div>
+
+            <button id="trade-submit" class="button button-primary full" type="submit">
+              注文を確定
+            </button>
+
+            <p id="trade-message" class="form-message" role="status"></p>
+          </form>
+
+          <p class="hint">
+            注文確定時の株価が適用されます。取引は取り消せないため、内容を確認してください。
+          </p>
+        </section>
+      </div>
+
+      <!-- 保有株とランキング -->
+      <div class="lower-grid">
+        <section class="card">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">MY POSITIONS</p>
+              <h2>保有株</h2>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>銘柄</th>
+                  <th>保有数</th>
+                  <th>現在株価</th>
+                  <th>評価額</th>
+                </tr>
+              </thead>
+              <tbody id="holdings-body">
+                <tr><td colspan="4" class="empty">読み込み中…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">LEADERBOARD</p>
+              <h2>資産ランキング</h2>
+            </div>
+          </div>
+
+          <div id="ranking-list" class="ranking-list">
+            <p class="empty">読み込み中…</p>
+          </div>
+        </section>
+      </div>
+
+      <!-- 取引履歴 -->
+      <section class="card history-card">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">TRANSACTIONS</p>
+            <h2 id="history-title">自分の取引履歴</h2>
           </div>
         </div>
 
-        <div class="total" id="totalPrice">
-          0円 <small>/ 年</small>
-        </div>
-      </div>
-
-      <div class="summary-details" id="summaryDetails"></div>
-
-      <div class="summary-row" style="margin-top:15px;">
-        <span>月額換算</span>
-        <strong id="monthlyPrice">0円</strong>
-      </div>
-
-      <div class="notice">
-        これは選択内容に基づく料金の試算です。
-        実際に契約する場合は、双方で内容と金額を確認してください。
-      </div>
-    </div>
-  </section>
-
-
-  <!-- 利用規約 -->
-
-  <section id="rules">
-    <div class="section-head">
-      <h2>03 / 利用条件</h2>
-      <p>プランの利用に関する基本ルールです。</p>
-    </div>
-
-    <div class="rules">
-
-      <div class="rule">
-        <h3>01. 契約期間</h3>
-        <p>
-          基本プランは年間契約を想定しています。
-          契約開始日と終了日は、契約する双方で決定します。
-        </p>
-      </div>
-
-      <div class="rule">
-        <h3>02. プランの選択</h3>
-        <p>
-          基本プランは1つ選択します。
-          オプションの追加は任意です。
-        </p>
-      </div>
-
-      <div class="rule">
-        <h3>03. 予定調整</h3>
-        <p>
-          優先予定調整オプションでは、日程の相談を優先的に行います。
-          実際の予定は双方の都合を確認して決定します。
-        </p>
-      </div>
-
-      <div class="rule">
-        <h3>04. 対応方針</h3>
-        <p>
-          プランに応じて、予定調整の優先度や提供するサービスが異なります。
-          どのプランでも、基本的な礼儀と相互の尊重を大切にします。
-        </p>
-      </div>
-
-      <div class="rule">
-        <h3>05. 追加費用</h3>
-        <p>
-          交通費、飲食代、施設利用料などは基本料金に含まれません。
-          必要な費用は事前に確認します。
-        </p>
-      </div>
-
-      <div class="rule">
-        <h3>06. 変更・解約</h3>
-        <p>
-          契約内容の変更や終了については、双方で話し合い、
-          合意した内容に従って対応します。
-        </p>
-      </div>
-
-    </div>
-  </section>
-
-</div>
-</main>
-
-
-<footer>
-  <div class="container footer-inner">
-    <div>
-      <strong>ANNUAL PLAN SYSTEM</strong><br>
-      Annual Contract &amp; Optional Services
-    </div>
-    <div>
-      個人名・個人の連絡先は掲載していません。<br>
-      © Annual Plan System
-    </div>
-  </div>
-</footer>
-
-
-<script>
-"use strict";
-
-/*
-  基本プランの料金は年間料金です。
-  金額を変更すると、見積もりにも自動反映されます。
-*/
-
-const plans = [
-  {
-    id: "premium",
-    rank: "S RANK",
-    name: "プレミアム",
-    price: 2200,
-    description: "最優先の予定調整と充実したサービス。"
-  },
-  {
-    id: "gold",
-    rank: "A RANK",
-    name: "ゴールド",
-    price: 1800,
-    description: "優先的な予定調整と丁寧な対応。"
-  },
-  {
-    id: "standard",
-    rank: "B RANK",
-    name: "スタンダード",
-    price: 1200,
-    description: "標準的なサービスを利用するプラン。"
-  },
-  {
-    id: "basic",
-    rank: "C RANK",
-    name: "ベーシック",
-    price: 800,
-    description: "基本的なサービスを利用するプラン。"
-  },
-  {
-    id: "light",
-    rank: "D RANK",
-    name: "ライト",
-    price: 600,
-    description: "必要最低限のサービスを利用するプラン。"
-  },
-  {
-    id: "free",
-    rank: "FREE",
-    name: "フリー",
-    price: 0,
-    description: "基本料金無料。追加サービスは別途選択。"
-  }
-];
-
-
-/*
-  お出かけオプション。
-  地域別のオプションは同時に1つだけ選択できます。
-*/
-
-const outingOptions = [
-  {
-    id: "gifu",
-    name: "岐阜県内のお出かけ",
-    price: 0,
-    description: "岐阜市内を含む岐阜県内のお出かけ。",
-    group: "region"
-  },
-  {
-    id: "nagoya",
-    name: "名古屋市内のお出かけ",
-    price: 1200,
-    description: "名古屋市内へのお出かけ。",
-    group: "region"
-  },
-  {
-    id: "aichi",
-    name: "愛知県内（名古屋市以外）",
-    price: 2000,
-    description: "名古屋市を除く愛知県内へのお出かけ。",
-    group: "region"
-  },
-  {
-    id: "far",
-    name: "遠出プラン",
-    price: 1500,
-    description: "遠方へのお出かけの計画。",
-    group: "other"
-  },
-  {
-    id: "karaoke",
-    name: "カラオケオプション",
-    price: 500,
-    description: "カラオケに関する予定調整。",
-    group: "other"
-  },
-  {
-    id: "shopping",
-    name: "ショッピングオプション",
-    price: 500,
-    description: "買い物に関する予定調整。",
-    group: "other"
-  }
-];
-
-
-/* 予定・交流オプション */
-
-const serviceOptions = [
-  {
-    id: "priority",
-    name: "優先予定調整",
-    price: 1000,
-    description: "遊ぶ日程の相談を優先的に行う。"
-  },
-  {
-    id: "event",
-    name: "イベント企画",
-    price: 500,
-    description: "一緒に楽しむイベントの企画。"
-  },
-  {
-    id: "regular",
-    name: "定期交流プラン",
-    price: 800,
-    description: "定期的に遊ぶ予定の相談。"
-  },
-  {
-    id: "special",
-    name: "特別イベント",
-    price: 1000,
-    description: "誕生日や記念日などの企画。"
-  }
-];
-
-
-let selectedPlan = "free";
-
-
-function yen(value) {
-  return value.toLocaleString("ja-JP") + "円";
-}
-
-
-function renderPlans() {
-  const container = document.getElementById("planGrid");
-
-  container.innerHTML = plans.map(plan => {
-    const monthly = plan.price / 12;
-    const monthlyText = plan.price === 0
-      ? "月額無料"
-      : "月額換算 " + yen(Math.round(monthly * 100) / 100);
-
-    return `
-      <article class="card ${selectedPlan === plan.id ? "selected" : ""}"
-               data-plan="${plan.id}">
-        <div class="rank">${plan.rank}</div>
-        <h3>${plan.name}</h3>
-
-        <div class="price">
-          ${yen(plan.price)}
-          <small>/ 年</small>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>日時</th>
+                <th>利用者</th>
+                <th>銘柄</th>
+                <th>取引</th>
+                <th>株数</th>
+                <th>株価</th>
+                <th>合計</th>
+              </tr>
+            </thead>
+            <tbody id="history-body">
+              <tr><td colspan="7" class="empty">読み込み中…</td></tr>
+            </tbody>
+          </table>
         </div>
 
-        <div class="monthly">${monthlyText}</div>
+        <p id="admin-note" class="hint hidden">
+          管理者モード：全利用者の取引履歴を表示しています。
+        </p>
+      </section>
 
-        <p>${plan.description}</p>
+      <div id="global-message" class="notice hidden" role="status"></div>
+    </section>
 
-        <button class="select-plan"
-                type="button"
-                data-select-plan="${plan.id}">
-          ${selectedPlan === plan.id ? "選択中 ✓" : "このプランを選択"}
-        </button>
-      </article>
-    `;
-  }).join("");
-
-  container.querySelectorAll("[data-select-plan]").forEach(button => {
-    button.addEventListener("click", () => {
-      selectedPlan = button.dataset.selectPlan;
-      renderPlans();
-      updateEstimate();
-    });
-  });
-}
-
-
-function renderOptions(options, containerId) {
-  const container = document.getElementById(containerId);
-
-  container.innerHTML = options.map(option => `
-    <label class="option">
-      <input
-        type="checkbox"
-        data-option-id="${option.id}"
-        data-price="${option.price}"
-        data-group="${option.group || ""}"
-      >
-
-      <span>
-        <span class="option-title">${option.name}</span>
-        <span class="option-desc">${option.description}</span>
-        <span class="option-price">
-          ${option.price === 0 ? "無料" : yen(option.price) + " / 年"}
-        </span>
-      </span>
-    </label>
-  `).join("");
-
-  container.querySelectorAll("input").forEach(input => {
-    input.addEventListener("change", () => {
-      /*
-        岐阜県内・名古屋・愛知県内は、
-        地域別オプションとして同時に選ばないようにします。
-      */
-      if (input.dataset.group === "region" && input.checked) {
-        container.querySelectorAll(
-          'input[data-group="region"]'
-        ).forEach(other => {
-          if (other !== input) {
-            other.checked = false;
-          }
-        });
-      }
-
-      updateEstimate();
-    });
-  });
-}
-
-
-function updateEstimate() {
-  const plan = plans.find(p => p.id === selectedPlan);
-
-  let total = plan.price;
-  const details = [];
-
-  details.push({
-    name: plan.name + "（基本プラン）",
-    price: plan.price
-  });
-
-  const checkedOptions = document.querySelectorAll(
-    '#options input[type="checkbox"]:checked'
-  );
-
-  checkedOptions.forEach(input => {
-    const price = Number(input.dataset.price);
-    const label = input.closest("label");
-    const name = label.querySelector(".option-title").textContent;
-
-    total += price;
-
-    details.push({
-      name,
-      price
-    });
-  });
-
-  document.getElementById("totalPrice").innerHTML =
-    yen(total) + ' <small>/ 年</small>';
-
-  document.getElementById("monthlyPrice").textContent =
-    yen(Math.round(total / 12));
-
-  document.getElementById("summaryDetails").innerHTML =
-    details.map(item => `
-      <div class="summary-row">
-        <span>${item.name}</span>
-        <strong>${yen(item.price)}</strong>
-      </div>
-    `).join("") +
-    `
-      <div class="summary-row"
-           style="border-top:1px solid var(--border);padding-top:12px;margin-top:12px;">
-        <span><strong>年間合計</strong></span>
-        <strong style="color:var(--green);">${yen(total)}</strong>
-      </div>
-    `;
-}
-
-
-renderPlans();
-renderOptions(outingOptions, "outingOptions");
-renderOptions(serviceOptions, "serviceOptions");
-updateEstimate();
-</script>
-
+    <footer>
+      <span>STOCK POINT</span>
+      <span>仮想株式市場 · 実際のお金は使用しません</span>
+    </footer>
+  </main>
 </body>
 </html>
