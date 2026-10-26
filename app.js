@@ -20,7 +20,7 @@ const SUPABASE_URL = "https://qwswjasrorhstzueixcr.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_WarHJF6XeJEaAqhmu9djFA_puVUA4Br";
 
 /* 初期設定 */
-const INITIAL_POINTS = 5000;
+const INITIAL_POINTS = 10000;
 const REFRESH_INTERVAL = 30000;
 
 let db = null;
