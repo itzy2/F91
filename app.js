@@ -1,25 +1,11 @@
 /* =====================================================
-STOCK POINT
-Supabase接続・ログイン・株式売買・ランキング
+   STOCK POINT
+   Supabase接続・ログイン・株式売買・ランキング
 ===================================================== */
-
-/*
-【最初に設定すること】
-
-SUPABASE_URL:
-SupabaseのProject URL
-
-SUPABASE_PUBLISHABLE_KEY:
-SupabaseのPublishable key
-
-公開用キーだけを使用してください。
-service_roleキーやsecretキーは絶対に設定しないでください。
-*/
 
 const SUPABASE_URL = "https://qwswjasrorhstzueixcr.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_WarHJF6XeJEaAqhmu9djFA_puVUA4Br";
 
-/* 初期設定 */
 const INITIAL_POINTS = 10000;
 const REFRESH_INTERVAL = 30000;
 
@@ -36,753 +22,931 @@ let isLoading = false;
 const $ = (id) => document.getElementById(id);
 
 const yen = (value) =>
-${Number(value || 0).toLocaleString("ja-JP")} pt;
+  `${Number(value || 0).toLocaleString("ja-JP")} pt`;
 
 function escapeHtml(value) {
-return String(value ?? "").replace(/[&<>"']/g, (char) => ({
-"&": "&",
-"<": "<",
-">": ">",
-'"': """,
-"'": "'"
-})[char]);
+  return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  })[char]);
 }
 
 function setMessage(id, message, success = false) {
-const element = $(id);
-if (!element) return;
+  const element = $(id);
+  if (!element) return;
 
-element.textContent = message;
-element.classList.toggle("success", success);
+  element.textContent = message;
+  element.classList.toggle("success", success);
 }
 
 function showGlobalMessage(message, warning = false) {
-const element = $("global-message");
-element.textContent = message;
-element.classList.remove("hidden", "warning");
+  const element = $("global-message");
+  if (!element) return;
 
-if (warning) {
-element.classList.add("warning");
-}
+  element.textContent = message;
+  element.classList.remove("hidden", "warning");
 
-window.setTimeout(() => {
-element.classList.add("hidden");
-}, 6000);
+  if (warning) {
+    element.classList.add("warning");
+  }
+
+  window.setTimeout(() => {
+    element.classList.add("hidden");
+  }, 6000);
 }
 
 function setLoggedInView(isLoggedIn) {
-$("auth-panel").classList.toggle("hidden", isLoggedIn);
-$("app-panel").classList.toggle("hidden", !isLoggedIn);
-$("user-area").classList.toggle("hidden", !isLoggedIn);
+  $("auth-panel")?.classList.toggle("hidden", isLoggedIn);
+  $("app-panel")?.classList.toggle("hidden", !isLoggedIn);
+  $("user-area")?.classList.toggle("hidden", !isLoggedIn);
 }
 
 function getSelectedSide() {
-return document.querySelector('input[name="side"]:checked')?.value || "buy";
+  return document.querySelector('input[name="side"]:checked')?.value || "buy";
 }
 
 function getSelectedStock() {
-const stockId = $("trade-stock").value;
-return stockList.find((stock) => stock.id === stockId);
+  const stockId = $("trade-stock")?.value;
+  return stockList.find((stock) => String(stock.id) === String(stockId));
 }
 
 function getMyHolding(stockId) {
-return holdingList.find((holding) => holding.stock_id === stockId);
+  return holdingList.find((holding) =>
+    String(holding.user_id) === String(currentUser?.id) &&
+    String(holding.stock_id) === String(stockId)
+  );
 }
 
 /* =====================================================
-初期化
+   初期化
 ===================================================== */
 
 async function initializeApp() {
-const isConfigured =
-SUPABASE_URL.startsWith("https://") &&
-!SUPABASE_URL.includes("ここに") &&
-SUPABASE_PUBLISHABLE_KEY.length > 20 &&
-!SUPABASE_PUBLISHABLE_KEY.includes("ここに");
+  const loginForm = $("login-form");
 
-if (!isConfigured) {
-$("config-warning").classList.remove("hidden");
-$("login-form").querySelector("button[type=submit]").disabled = true;
-setMessage(
-"login-message",
-"app.jsのSupabase接続設定を入力してから利用してください。"
-);
-return;
-}
+  if (!loginForm) {
+    console.error("ログインフォーム login-form が見つかりません。");
+    return;
+  }
 
-if (!window.supabase?.createClient) {
-setMessage(
-"login-message",
-"Supabaseライブラリを読み込めません。通信環境を確認してください。"
-);
-return;
-}
+  const isConfigured =
+    SUPABASE_URL.startsWith("https://") &&
+    SUPABASE_PUBLISHABLE_KEY.length > 20;
 
-db = window.supabase.createClient(
-SUPABASE_URL,
-SUPABASE_PUBLISHABLE_KEY
-);
+  if (!isConfigured) {
+    $("config-warning")?.classList.remove("hidden");
+    setMessage(
+      "login-message",
+      "Supabaseの接続設定を確認してください。"
+    );
+    return;
+  }
 
-$("login-form").addEventListener("submit", handleLogin);
-$("logout-btn").addEventListener("click", handleLogout);
-$("refresh-btn").addEventListener("click", () => refreshDashboard(true));
-$("trade-form").addEventListener("submit", handleTrade);
+  if (!window.supabase?.createClient) {
+    setMessage(
+      "login-message",
+      "Supabaseライブラリを読み込めません。index.htmlを確認してください。"
+    );
+    console.error("Supabase JavaScriptライブラリがありません。");
+    return;
+  }
 
-$("trade-stock").addEventListener("change", updateEstimate);
-$("quantity").addEventListener("input", updateEstimate);
+  db = window.supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_PUBLISHABLE_KEY
+  );
 
-document.querySelectorAll('input[name="side"]').forEach((radio) => {
-radio.addEventListener("change", updateEstimate);
-});
+  loginForm.addEventListener("submit", handleLogin);
 
-const { data, error } = await db.auth.getSession();
+  $("logout-btn")?.addEventListener("click", handleLogout);
+  $("refresh-btn")?.addEventListener("click", () => refreshDashboard(true));
+  $("trade-form")?.addEventListener("submit", handleTrade);
 
-if (error) {
-setMessage("login-message", "ログイン状態を確認できませんでした。");
-} else if (data.session) {
-await handleSession(data.session);
-}
+  $("trade-stock")?.addEventListener("change", updateEstimate);
+  $("quantity")?.addEventListener("input", updateEstimate);
 
-db.auth.onAuthStateChange((_event, session) => {
-window.setTimeout(() => {
-handleSession(session);
-}, 0);
-});
+  document.querySelectorAll('input[name="side"]').forEach((radio) => {
+    radio.addEventListener("change", updateEstimate);
+  });
+
+  try {
+    const { data, error } = await db.auth.getSession();
+
+    if (error) throw error;
+
+    if (data.session) {
+      await handleSession(data.session);
+    }
+  } catch (error) {
+    console.error("ログイン状態の確認に失敗しました:", error);
+    setMessage(
+      "login-message",
+      friendlyError(error, "ログイン状態を確認できませんでした。")
+    );
+  }
+
+  db.auth.onAuthStateChange((_event, session) => {
+    window.setTimeout(() => {
+      handleSession(session);
+    }, 0);
+  });
 }
 
 /* =====================================================
-ログイン
+   ログイン
 ===================================================== */
 
 async function handleLogin(event) {
-event.preventDefault();
+  event.preventDefault();
 
-if (!db) return;
+  if (!db) {
+    setMessage("login-message", "Supabaseに接続できていません。");
+    return;
+  }
 
-const email = $("email").value.trim();
-const password = $("password").value;
+  const email = $("email")?.value.trim();
+  const password = $("password")?.value;
 
-const button = $("login-form").querySelector("button[type=submit]");
-button.disabled = true;
-button.textContent = "ログイン中…";
-setMessage("login-message", "");
+  if (!email || !password) {
+    setMessage(
+      "login-message",
+      "メールアドレスとパスワードを入力してください。"
+    );
+    return;
+  }
 
-try {
-const { data, error } = await db.auth.signInWithPassword({
-email,
-password
-});
+  const button = $("login-form")?.querySelector('button[type="submit"]');
 
-if (error) throw error;  
+  if (button) {
+    button.disabled = true;
+    button.textContent = "ログイン中…";
+  }
 
-await handleSession(data.session);  
-} catch (error) {
-setMessage(
-"login-message",
-friendlyError(error, "ログインできませんでした。メールアドレスとパスワードを確認してください。")
-);
-} finally {
-button.disabled = false;
-button.textContent = "ログイン";
-}
+  setMessage("login-message", "");
+
+  try {
+    const { data, error } = await db.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (error) throw error;
+
+    await handleSession(data.session);
+  } catch (error) {
+    console.error("ログインエラー:", error);
+
+    setMessage(
+      "login-message",
+      friendlyError(
+        error,
+        "ログインできませんでした。入力内容とSupabaseの設定を確認してください。"
+      )
+    );
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = "ログイン";
+    }
+  }
 }
 
 async function handleLogout() {
-if (!db) return;
+  if (!db) return;
 
-$("logout-btn").disabled = true;
+  const button = $("logout-btn");
+  if (button) button.disabled = true;
 
-try {
-const { error } = await db.auth.signOut();
-if (error) throw error;
+  try {
+    const { error } = await db.auth.signOut();
 
-clearDashboard();  
-setLoggedInView(false);  
-setMessage("login-message", "ログアウトしました。", true);  
-} catch (error) {
-showGlobalMessage(friendlyError(error, "ログアウトできませんでした。"), true);
-} finally {
-$("logout-btn").disabled = false;
-}
+    if (error) throw error;
+
+    clearInterval(refreshTimer);
+    refreshTimer = null;
+
+    currentUser = null;
+    currentProfile = null;
+
+    clearDashboard();
+    setLoggedInView(false);
+    setMessage("login-message", "ログアウトしました。", true);
+  } catch (error) {
+    console.error("ログアウトエラー:", error);
+    showGlobalMessage(
+      friendlyError(error, "ログアウトできませんでした。"),
+      true
+    );
+  } finally {
+    if (button) button.disabled = false;
+  }
 }
 
 /* =====================================================
-ログイン状態
+   ログイン状態・プロフィール
 ===================================================== */
 
 async function handleSession(session) {
-if (!session?.user) {
-currentUser = null;
-currentProfile = null;
-clearInterval(refreshTimer);
-refreshTimer = null;
-setLoggedInView(false);
-return;
-}
+  if (!session?.user) {
+    currentUser = null;
+    currentProfile = null;
 
-if (currentUser?.id === session.user.id && currentProfile) {
-setLoggedInView(true);
-return;
-}
+    clearInterval(refreshTimer);
+    refreshTimer = null;
 
-currentUser = session.user;
-setLoggedInView(true);
+    setLoggedInView(false);
+    return;
+  }
 
-$("whoami").textContent = "読み込み中…";
+  if (
+    currentUser?.id === session.user.id &&
+    currentProfile
+  ) {
+    setLoggedInView(true);
+    return;
+  }
 
-try {
-const { data: profile, error } = await db
-.from("profiles")
-.select("id, display_name, role, points")
-.eq("id", currentUser.id)
-.maybeSingle();
+  currentUser = session.user;
+  setLoggedInView(true);
 
-if (error) throw error;  
+  if ($("whoami")) {
+    $("whoami").textContent = "読み込み中…";
+  }
 
-if (!profile) {  
-  throw new Error(  
-    "プロフィールが見つかりません。Supabaseのprofilesテーブルを確認してください。"  
-  );  
-}  
+  try {
+    const { data: profile, error } = await db
+      .from("profiles")
+      .select("id, display_name, role, points")
+      .eq("id", currentUser.id)
+      .maybeSingle();
 
-currentProfile = profile;  
-$("whoami").textContent =  
-  `${profile.display_name}（${profile.role === "admin" ? "管理者" : "一般ユーザー"}）`;  
+    if (error) throw error;
 
-$("history-title").textContent =  
-  profile.role === "admin" ? "全利用者の取引履歴" : "自分の取引履歴";  
+    if (!profile) {
+      throw new Error(
+        "プロフィールが見つかりません。profilesテーブルを確認してください。"
+      );
+    }
 
-$("admin-note").classList.toggle(  
-  "hidden",  
-  profile.role !== "admin"  
-);  
+    currentProfile = profile;
 
-await refreshDashboard();  
+    $("whoami").textContent =
+      `${profile.display_name}（${profile.role === "admin" ? "管理者" : "一般ユーザー"}）`;
 
-clearInterval(refreshTimer);  
-refreshTimer = setInterval(() => refreshDashboard(), REFRESH_INTERVAL);  
-} catch (error) {
-showGlobalMessage(
-friendlyError(error, "プロフィールを読み込めませんでした。"),
-true
-);
-}
+    $("history-title").textContent =
+      profile.role === "admin"
+        ? "全利用者の取引履歴"
+        : "自分の取引履歴";
+
+    $("admin-note")?.classList.toggle(
+      "hidden",
+      profile.role !== "admin"
+    );
+
+    await refreshDashboard();
+
+    clearInterval(refreshTimer);
+    refreshTimer = setInterval(
+      () => refreshDashboard(),
+      REFRESH_INTERVAL
+    );
+  } catch (error) {
+    console.error("プロフィール読み込みエラー:", error);
+
+    showGlobalMessage(
+      friendlyError(error, "プロフィールを読み込めませんでした。"),
+      true
+    );
+  }
 }
 
 function clearDashboard() {
-stockList = [];
-holdingList = [];
-profileList = [];
-transactionList = [];
-currentProfile = null;
+  stockList = [];
+  holdingList = [];
+  profileList = [];
+  transactionList = [];
+  currentProfile = null;
 
-$("whoami").textContent = "";
-$("stocks-body").innerHTML = '
+  if ($("whoami")) $("whoami").textContent = "";
 
-ログインしてください。
-';
-$("holdings-body").innerHTML = '
-ログインしてください。
-';
-$("history-body").innerHTML = '
-ログインしてください。
-';
-$("ranking-list").innerHTML = '
-ログインしてください。
+  if ($("stocks-body")) {
+    $("stocks-body").textContent = "ログインしてください。";
+  }
 
-';
-$("cash-value").textContent = "—";
-$("holdings-value").textContent = "—";
-$("total-value").textContent = "—";
-$("profit-value").textContent = "—";
+  if ($("holdings-body")) {
+    $("holdings-body").textContent = "ログインしてください。";
+  }
+
+  if ($("history-body")) {
+    $("history-body").textContent = "ログインしてください。";
+  }
+
+  if ($("ranking-list")) {
+    $("ranking-list").textContent = "ログインしてください。";
+  }
+
+  if ($("cash-value")) $("cash-value").textContent = "—";
+  if ($("holdings-value")) $("holdings-value").textContent = "—";
+  if ($("total-value")) $("total-value").textContent = "—";
+  if ($("profit-value")) $("profit-value").textContent = "—";
 }
 
 /* =====================================================
-ダッシュボードの更新
+   ダッシュボードの更新
 ===================================================== */
 
 async function refreshDashboard(showNotice = false) {
-if (!db || !currentUser || isLoading) return;
+  if (!db || !currentUser || isLoading) return;
 
-isLoading = true;
-$("refresh-btn").disabled = true;
+  isLoading = true;
 
-try {
-await loadStocks();
-await loadProfiles();
-await loadHoldings();
-await loadTransactions();
+  if ($("refresh-btn")) {
+    $("refresh-btn").disabled = true;
+  }
 
-renderDashboard();  
+  try {
+    await loadStocks();
+    await loadProfiles();
+    await loadHoldings();
+    await loadTransactions();
 
-$("last-updated").textContent =  
-  `最終確認 ${new Date().toLocaleTimeString("ja-JP", {  
-    hour: "2-digit",  
-    minute: "2-digit",  
-    second: "2-digit"  
-  })}`;  
+    renderDashboard();
 
-if (showNotice) {  
-  showGlobalMessage("データを更新しました。");  
-}  
-} catch (error) {
-showGlobalMessage(
-friendlyError(error, "データを読み込めませんでした。"),
-true
-);
-} finally {
-isLoading = false;
-$("refresh-btn").disabled = false;
-}
+    if ($("last-updated")) {
+      $("last-updated").textContent =
+        `最終確認 ${new Date().toLocaleTimeString("ja-JP", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit"
+        })}`;
+    }
+
+    if (showNotice) {
+      showGlobalMessage("データを更新しました。");
+    }
+  } catch (error) {
+    console.error("ダッシュボード更新エラー:", error);
+
+    showGlobalMessage(
+      friendlyError(error, "データを読み込めませんでした。"),
+      true
+    );
+  } finally {
+    isLoading = false;
+
+    if ($("refresh-btn")) {
+      $("refresh-btn").disabled = false;
+    }
+  }
 }
 
 async function loadStocks() {
-const { data, error } = await db
-.from("stocks")
-.select("id, name, price, previous_price, updated_at")
-.order("id");
+  const { data, error } = await db
+    .from("stocks")
+    .select("id, name, price, previous_price, updated_at")
+    .order("id");
 
-if (error) throw error;
+  if (error) throw error;
 
-stockList = data || [];
+  stockList = data || [];
 }
 
 async function loadProfiles() {
-const { data, error } = await db
-.from("profiles")
-.select("id, display_name, role, points");
+  const { data, error } = await db
+    .from("profiles")
+    .select("id, display_name, role, points");
 
-if (error) throw error;
+  if (error) throw error;
 
-profileList = data || [];
+  profileList = data || [];
 
-const me = profileList.find((profile) => profile.id === currentUser.id);
+  const me = profileList.find(
+    (profile) => String(profile.id) === String(currentUser.id)
+  );
 
-if (me) currentProfile = me;
+  if (me) currentProfile = me;
 }
 
 async function loadHoldings() {
-const { data, error } = await db
-.from("holdings")
-.select("user_id, stock_id, quantity");
+  const { data, error } = await db
+    .from("holdings")
+    .select("user_id, stock_id, quantity");
 
-if (error) throw error;
+  if (error) throw error;
 
-holdingList = data || [];
+  holdingList = data || [];
 }
 
 async function loadTransactions() {
-let query = db
-.from("transactions")
-.select("id, user_id, stock_id, side, quantity, price, total, created_at")
-.order("created_at", { ascending: false })
-.limit(100);
+  let query = db
+    .from("transactions")
+    .select("id, user_id, stock_id, side, quantity, price, total, created_at")
+    .order("created_at", { ascending: false })
+    .limit(100);
 
-/*
-RLSでも制限していますが、一般ユーザーは本人の履歴だけを
-要求するようにしています。管理者は全履歴を要求します。
-*/
-if (currentProfile?.role !== "admin") {
-query = query.eq("user_id", currentUser.id);
-}
+  if (currentProfile?.role !== "admin") {
+    query = query.eq("user_id", currentUser.id);
+  }
 
-const { data, error } = await query;
+  const { data, error } = await query;
 
-if (error) throw error;
+  if (error) throw error;
 
-transactionList = data || [];
+  transactionList = data || [];
 }
 
 /* =====================================================
-画面表示
+   画面表示
 ===================================================== */
 
 function renderDashboard() {
-if (!currentProfile) return;
+  if (!currentProfile) return;
 
-const stockById = Object.fromEntries(
-stockList.map((stock) => [stock.id, stock])
-);
+  const stockById = Object.fromEntries(
+    stockList.map((stock) => [String(stock.id), stock])
+  );
 
-const myHoldings = holdingList.filter(
-(holding) => holding.user_id === currentUser.id
-);
+  const myHoldings = holdingList.filter(
+    (holding) =>
+      String(holding.user_id) === String(currentUser.id)
+  );
 
-const holdingsValue = myHoldings.reduce((sum, holding) => {
-const stock = stockById[holding.stock_id];
-if (!stock) return sum;
+  const holdingsValue = myHoldings.reduce((sum, holding) => {
+    const stock = stockById[String(holding.stock_id)];
 
-return sum + Number(stock.price) * Number(holding.quantity);  
-}, 0);
+    if (!stock) return sum;
 
-const cash = Number(currentProfile.points || 0);
-const total = cash + holdingsValue;
-const profit = total - INITIAL_POINTS;
+    return sum +
+      Number(stock.price) * Number(holding.quantity);
+  }, 0);
 
-$("cash-value").textContent = yen(cash);
-$("holdings-value").textContent = yen(holdingsValue);
-$("total-value").textContent = yen(total);
+  const cash = Number(currentProfile.points || 0);
+  const total = cash + holdingsValue;
+  const profit = total - INITIAL_POINTS;
 
-const profitElement = $("profit-value");
-profitElement.textContent =
-${profit > 0 ? "+" : ""}${yen(profit)};
-profitElement.classList.toggle("positive", profit > 0);
-profitElement.classList.toggle("negative", profit < 0);
+  $("cash-value").textContent = yen(cash);
+  $("holdings-value").textContent = yen(holdingsValue);
+  $("total-value").textContent = yen(total);
 
-renderStockTable(myHoldings);
-renderStockSelect();
-renderHoldingsTable(myHoldings);
-renderRanking(stockById);
-renderHistory(stockById);
+  const profitElement = $("profit-value");
 
-updateEstimate();
+  profitElement.textContent =
+    `${profit > 0 ? "+" : ""}${yen(profit)}`;
+
+  profitElement.classList.toggle("positive", profit > 0);
+  profitElement.classList.toggle("negative", profit < 0);
+
+  renderStockTable(myHoldings);
+  renderStockSelect();
+  renderHoldingsTable(myHoldings);
+  renderRanking(stockById);
+  renderHistory(stockById);
+
+  updateEstimate();
 }
 
 function renderStockTable(myHoldings) {
-const body = $("stocks-body");
+  const body = $("stocks-body");
 
-if (!stockList.length) {
-body.innerHTML = '
+  if (!stockList.length) {
+    body.textContent = "株式データがありません。";
+    return;
+  }
 
-株式データがありません。
-';
-return;
-}
-const holdingMap = Object.fromEntries(
-myHoldings.map((holding) => [holding.stock_id, holding.quantity])
-);
+  const holdingMap = Object.fromEntries(
+    myHoldings.map((holding) => [
+      String(holding.stock_id),
+      holding.quantity
+    ])
+  );
 
-body.innerHTML = stockList.map((stock) => {
-const price = Number(stock.price);
-const previous = Number(stock.previous_price);
-const change = price - previous;
-const percent = previous > 0 ? (change / previous) * 100 : 0;
+  body.innerHTML = stockList.map((stock) => {
+    const price = Number(stock.price);
+    const previous = Number(stock.previous_price);
+    const change = price - previous;
+    const percent = previous > 0
+      ? (change / previous) * 100
+      : 0;
 
-let changeClass = "change-flat";  
-let changeText = "±0 pt";  
+    let changeClass = "change-flat";
+    let changeText = "±0 pt";
 
-if (change > 0) {  
-  changeClass = "change-up";  
-  changeText = `+${change.toLocaleString("ja-JP")} pt`;  
-} else if (change < 0) {  
-  changeClass = "change-down";  
-  changeText = `${change.toLocaleString("ja-JP")} pt`;  
-}  
+    if (change > 0) {
+      changeClass = "change-up";
+      changeText = `+${change.toLocaleString("ja-JP")} pt`;
+    } else if (change < 0) {
+      changeClass = "change-down";
+      changeText = `${change.toLocaleString("ja-JP")} pt`;
+    }
 
-return `  
-  <tr>  
-    <td class="stock-name">  
-      ${escapeHtml(stock.name)}  
-      <span class="stock-code">${escapeHtml(stock.id)}</span>  
-    </td>  
-    <td class="price">${yen(price)}</td>  
-    <td class="${changeClass}">  
-      ${changeText}  
-      <span class="stock-code">${percent > 0 ? "+" : ""}${percent.toFixed(2)}%</span>  
-    </td>  
-    <td>${Number(holdingMap[stock.id] || 0).toLocaleString("ja-JP")} 株</td>  
-    <td>  
-      <div class="table-action">  
-        <button class="buy-shortcut" type="button" data-side="buy" data-stock="${escapeHtml(stock.id)}">購入</button>  
-        <button class="sell-shortcut" type="button" data-side="sell" data-stock="${escapeHtml(stock.id)}">売却</button>  
-      </div>  
-    </td>  
-  </tr>  
-`;  
-}).join("");
+    return `
+      <tr>
+        <td class="stock-name">
+          ${escapeHtml(stock.name)}
+          <span class="stock-code">${escapeHtml(stock.id)}</span>
+        </td>
+        <td class="price">${yen(price)}</td>
+        <td class="${changeClass}">
+          ${changeText}
+          <span class="stock-code">
+            ${percent > 0 ? "+" : ""}${percent.toFixed(2)}%
+          </span>
+        </td>
+        <td>${Number(holdingMap[String(stock.id)] || 0).toLocaleString("ja-JP")} 株</td>
+        <td>
+          <div class="table-action">
+            <button class="buy-shortcut" type="button"
+              data-side="buy" data-stock="${escapeHtml(stock.id)}">購入</button>
+            <button class="sell-shortcut" type="button"
+              data-side="sell" data-stock="${escapeHtml(stock.id)}">売却</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join("");
 
-body.querySelectorAll("button[data-stock]").forEach((button) => {
-button.addEventListener("click", () => {
-$("trade-stock").value = button.dataset.stock;
+  body.querySelectorAll("button[data-stock]").forEach((button) => {
+    button.addEventListener("click", () => {
+      $("trade-stock").value = button.dataset.stock;
 
-  const radio = document.querySelector(  
-    `input[name="side"][value="${button.dataset.side}"]`  
-  );  
+      const radio = document.querySelector(
+        `input[name="side"][value="${button.dataset.side}"]`
+      );
 
-  if (radio) radio.checked = true;  
+      if (radio) radio.checked = true;
 
-  updateEstimate();  
+      updateEstimate();
 
-  $("trade-stock").scrollIntoView({  
-    behavior: "smooth",  
-    block: "center"  
-  });  
-});  
-});
+      $("trade-stock").scrollIntoView({
+        behavior: "smooth",
+        block: "center"
+      });
+    });
+  });
 }
 
 function renderStockSelect() {
-const select = $("trade-stock");
-const previousValue = select.value;
+  const select = $("trade-stock");
+  const previousValue = select.value;
 
-select.innerHTML = stockList.map((stock) => <option value="${escapeHtml(stock.id)}"> ${escapeHtml(stock.name)}（${yen(stock.price)}） </option> ).join("");
+  select.innerHTML = stockList.map((stock) => `
+    <option value="${escapeHtml(stock.id)}">
+      ${escapeHtml(stock.name)}（${yen(stock.price)}）
+    </option>
+  `).join("");
 
-if (stockList.some((stock) => stock.id === previousValue)) {
-select.value = previousValue;
-}
+  if (
+    stockList.some(
+      (stock) => String(stock.id) === String(previousValue)
+    )
+  ) {
+    select.value = previousValue;
+  }
 }
 
 function renderHoldingsTable(myHoldings) {
-const body = $("holdings-body");
-const nonZero = myHoldings.filter((holding) => Number(holding.quantity) > 0);
+  const body = $("holdings-body");
 
-if (!nonZero.length) {
-body.innerHTML = '
+  const nonZero = myHoldings.filter(
+    (holding) => Number(holding.quantity) > 0
+  );
 
-まだ株式を保有していません。
-';
-return;
-}
-const stockById = Object.fromEntries(
-stockList.map((stock) => [stock.id, stock])
-);
+  if (!nonZero.length) {
+    body.textContent = "まだ株式を保有していません。";
+    return;
+  }
 
-body.innerHTML = nonZero.map((holding) => {
-const stock = stockById[holding.stock_id];
-if (!stock) return "";
+  const stockById = Object.fromEntries(
+    stockList.map((stock) => [String(stock.id), stock])
+  );
 
-return `  
-  <tr>  
-    <td class="stock-name">${escapeHtml(stock.name)}</td>  
-    <td>${Number(holding.quantity).toLocaleString("ja-JP")} 株</td>  
-    <td>${yen(stock.price)}</td>  
-    <td class="price">${yen(Number(stock.price) * Number(holding.quantity))}</td>  
-  </tr>  
-`;  
-}).join("");
+  body.innerHTML = nonZero.map((holding) => {
+    const stock = stockById[String(holding.stock_id)];
+
+    if (!stock) return "";
+
+    return `
+      <tr>
+        <td class="stock-name">${escapeHtml(stock.name)}</td>
+        <td>${Number(holding.quantity).toLocaleString("ja-JP")} 株</td>
+        <td>${yen(stock.price)}</td>
+        <td class="price">
+          ${yen(Number(stock.price) * Number(holding.quantity))}
+        </td>
+      </tr>
+    `;
+  }).join("");
 }
 
 function renderRanking(stockById) {
-const ranking = profileList.map((profile) => {
-const value = holdingList
-.filter((holding) => holding.user_id === profile.id)
-.reduce((sum, holding) => {
-const stock = stockById[holding.stock_id];
-if (!stock) return sum;
+  const ranking = profileList.map((profile) => {
+    const value = holdingList
+      .filter(
+        (holding) =>
+          String(holding.user_id) === String(profile.id)
+      )
+      .reduce((sum, holding) => {
+        const stock = stockById[String(holding.stock_id)];
 
-    return sum + Number(stock.price) * Number(holding.quantity);  
-  }, 0);  
+        if (!stock) return sum;
 
-return {  
-  id: profile.id,  
-  name: profile.display_name,  
-  total: Number(profile.points || 0) + value,  
-  points: Number(profile.points || 0),  
-  holdingsValue: value  
-};  
-}).sort((a, b) => b.total - a.total);
+        return sum +
+          Number(stock.price) * Number(holding.quantity);
+      }, 0);
 
-if (!ranking.length) {
-$("ranking-list").innerHTML = '
+    return {
+      id: profile.id,
+      name: profile.display_name,
+      total: Number(profile.points || 0) + value,
+      points: Number(profile.points || 0),
+      holdingsValue: value
+    };
+  }).sort((a, b) => b.total - a.total);
 
-ランキングデータがありません。
+  if (!ranking.length) {
+    $("ranking-list").textContent = "ランキングデータがありません。";
+    return;
+  }
 
-';
-return;
-}
-$("ranking-list").innerHTML = ranking.map((item, index) => <div class="ranking-item"> <div class="rank-number ${index === 0 ? "first" : ""}"> ${index + 1} </div> <div> <div class="rank-name"> ${escapeHtml(item.name)} ${item.id === currentUser.id ? "（あなた）" : ""} </div> <div class="rank-caption"> ポイント ${yen(item.points)} · 株式 ${yen(item.holdingsValue)} </div> </div> <div class="rank-total">${yen(item.total)}</div> </div> ).join("");
+  $("ranking-list").innerHTML = ranking.map((item, index) => `
+    <div class="ranking-item">
+      <div class="rank-number ${index === 0 ? "first" : ""}">
+        ${index + 1}
+      </div>
+      <div>
+        <div class="rank-name">
+          ${escapeHtml(item.name)}
+          ${String(item.id) === String(currentUser.id) ? "（あなた）" : ""}
+        </div>
+        <div class="rank-caption">
+          ポイント ${yen(item.points)} · 株式 ${yen(item.holdingsValue)}
+        </div>
+      </div>
+      <div class="rank-total">${yen(item.total)}</div>
+    </div>
+  `).join("");
 }
 
 function renderHistory(stockById) {
-const body = $("history-body");
+  const body = $("history-body");
 
-if (!transactionList.length) {
-body.innerHTML = '
+  if (!transactionList.length) {
+    body.textContent = "取引履歴はまだありません。";
+    return;
+  }
 
-取引履歴はまだありません。
-';
-return;
-}
-const profileById = Object.fromEntries(
-profileList.map((profile) => [profile.id, profile])
-);
+  const profileById = Object.fromEntries(
+    profileList.map((profile) => [String(profile.id), profile])
+  );
 
-body.innerHTML = transactionList.map((transaction) => {
-const stock = stockById[transaction.stock_id];
-const profile = profileById[transaction.user_id];
+  body.innerHTML = transactionList.map((transaction) => {
+    const stock = stockById[String(transaction.stock_id)];
+    const profile = profileById[String(transaction.user_id)];
 
-const date = new Date(transaction.created_at);  
-const dateText = Number.isNaN(date.getTime())  
-  ? "日時不明"  
-  : date.toLocaleString("ja-JP");  
+    const date = new Date(transaction.created_at);
+    const dateText = Number.isNaN(date.getTime())
+      ? "日時不明"
+      : date.toLocaleString("ja-JP");
 
-const isBuy = transaction.side === "buy";  
+    const isBuy = transaction.side === "buy";
 
-return `  
-  <tr>  
-    <td>${escapeHtml(dateText)}</td>  
-    <td>${escapeHtml(profile?.display_name || "ユーザー")}</td>  
-    <td>${escapeHtml(stock?.name || transaction.stock_id)}</td>  
-    <td class="${isBuy ? "change-up" : "change-down"}">  
-      ${isBuy ? "購入" : "売却"}  
-    </td>  
-    <td>${Number(transaction.quantity).toLocaleString("ja-JP")} 株</td>  
-    <td>${yen(transaction.price)}</td>  
-    <td class="price">${yen(transaction.total)}</td>  
-  </tr>  
-`;  
-}).join("");
+    return `
+      <tr>
+        <td>${escapeHtml(dateText)}</td>
+        <td>${escapeHtml(profile?.display_name || "ユーザー")}</td>
+        <td>${escapeHtml(stock?.name || transaction.stock_id)}</td>
+        <td class="${isBuy ? "change-up" : "change-down"}">
+          ${isBuy ? "購入" : "売却"}
+        </td>
+        <td>${Number(transaction.quantity).toLocaleString("ja-JP")} 株</td>
+        <td>${yen(transaction.price)}</td>
+        <td class="price">${yen(transaction.total)}</td>
+      </tr>
+    `;
+  }).join("");
 }
 
 /* =====================================================
-注文金額の計算
+   注文金額の計算
 ===================================================== */
 
 function updateEstimate() {
-const stock = getSelectedStock();
-const quantity = Number($("quantity").value || 0);
+  const stock = getSelectedStock();
+  const quantity = Number($("quantity")?.value || 0);
 
-if (!stock || quantity <= 0 || !Number.isInteger(quantity)) {
-$("estimate").textContent = "—";
-return;
-}
+  if (
+    !stock ||
+    quantity <= 0 ||
+    !Number.isInteger(quantity)
+  ) {
+    if ($("estimate")) $("estimate").textContent = "—";
+    return;
+  }
 
-$("estimate").textContent = yen(Number(stock.price) * quantity);
+  $("estimate").textContent =
+    yen(Number(stock.price) * quantity);
 }
 
 /* =====================================================
-株式売買
+   株式売買
 ===================================================== */
 
 async function handleTrade(event) {
-event.preventDefault();
+  event.preventDefault();
 
-if (!db || !currentUser || !currentProfile) {
-setMessage("trade-message", "ログインしてください。");
-return;
-}
+  if (!db || !currentUser || !currentProfile) {
+    setMessage("trade-message", "ログインしてください。");
+    return;
+  }
 
-const stockId = $("trade-stock").value;
-const side = getSelectedSide();
-const quantity = Number($("quantity").value);
+  const stockId = $("trade-stock").value;
+  const side = getSelectedSide();
+  const quantity = Number($("quantity").value);
 
-if (!stockId) {
-setMessage("trade-message", "銘柄を選択してください。");
-return;
-}
+  if (!stockId) {
+    setMessage("trade-message", "銘柄を選択してください。");
+    return;
+  }
 
-if (!Number.isInteger(quantity) || quantity < 1 || quantity > 100000) {
-setMessage("trade-message", "株数は1〜100,000株の整数で入力してください。");
-return;
-}
+  if (
+    !Number.isInteger(quantity) ||
+    quantity < 1 ||
+    quantity > 100000
+  ) {
+    setMessage(
+      "trade-message",
+      "株数は1〜100,000株の整数で入力してください。"
+    );
+    return;
+  }
 
-const stock = stockList.find((item) => item.id === stockId);
+  const stock = stockList.find(
+    (item) => String(item.id) === String(stockId)
+  );
 
-if (!stock) {
-setMessage("trade-message", "銘柄データを読み込めませんでした。");
-return;
-}
+  if (!stock) {
+    setMessage("trade-message", "銘柄データを読み込めませんでした。");
+    return;
+  }
 
-const total = Number(stock.price) * quantity;
+  const total = Number(stock.price) * quantity;
 
-if (side === "buy" && total > Number(currentProfile.points)) {
-setMessage("trade-message", "ポイントが不足しています。");
-return;
-}
+  if (
+    side === "buy" &&
+    total > Number(currentProfile.points)
+  ) {
+    setMessage("trade-message", "ポイントが不足しています。");
+    return;
+  }
 
-const holding = getMyHolding(stockId);
+  /*
+    売却時は保有株数をデータベースから再取得します。
+    画面に残った古い保有株数だけで判定しません。
+  */
+  if (side === "sell") {
+    try {
+      const { data: holding, error } = await db
+        .from("holdings")
+        .select("quantity")
+        .eq("user_id", currentUser.id)
+        .eq("stock_id", stockId)
+        .maybeSingle();
 
-if (side === "sell" && Number(holding?.quantity || 0) < quantity) {
-setMessage("trade-message", "売却する株数が保有株数を超えています。");
-return;
-}
+      if (error) throw error;
 
-const actionName = side === "buy" ? "購入" : "売却";
-const confirmed = window.confirm(
-${stock.name}\n${actionName}株数：${quantity.toLocaleString("ja-JP")}株\n +
-概算金額：${yen(total)}\n\n注文を確定しますか？
-);
+      const actualQuantity = Number(holding?.quantity || 0);
 
-if (!confirmed) return;
+      if (actualQuantity < quantity) {
+        await refreshDashboard();
 
-const button = $("trade-submit");
-button.disabled = true;
-button.textContent = "注文処理中…";
-setMessage("trade-message", "");
+        setMessage(
+          "trade-message",
+          `保有株数は${actualQuantity.toLocaleString("ja-JP")}株です。売却株数を確認してください。`
+        );
+        return;
+      }
+    } catch (error) {
+      console.error("保有株数の確認エラー:", error);
 
-try {
-/*
-売買処理はSupabaseの関数で行います。
-ブラウザー側からポイントや保有株を直接変更しません。
-*/
-const { data, error } = await db.rpc("trade_stock", {
-p_stock_id: stockId,
-p_side: side,
-p_quantity: quantity
-});
+      setMessage(
+        "trade-message",
+        friendlyError(error, "保有株数を確認できませんでした。")
+      );
+      return;
+    }
+  }
 
-if (error) throw error;  
+  const actionName = side === "buy" ? "購入" : "売却";
 
-if (!data?.success) {  
-  throw new Error("注文結果を確認できませんでした。");  
-}  
+  const confirmed = window.confirm(
+    `${stock.name}\n` +
+    `${actionName}株数：${quantity.toLocaleString("ja-JP")}株\n` +
+    `概算金額：${yen(total)}\n\n` +
+    "注文を確定しますか？"
+  );
 
-setMessage(  
-  "trade-message",  
-  `${actionName}が完了しました。取引額：${yen(data.total)}`,  
-  true  
-);  
+  if (!confirmed) return;
 
-await refreshDashboard();  
-} catch (error) {
-setMessage(
-"trade-message",
-friendlyError(error, "注文に失敗しました。")
-);
-} finally {
-button.disabled = false;
-button.textContent = "注文を確定";
-}
+  const button = $("trade-submit");
+  button.disabled = true;
+  button.textContent = "注文処理中…";
+
+  setMessage("trade-message", "");
+
+  try {
+    /*
+      最終的な売買処理はSupabaseのtrade_stock関数で実行します。
+      ポイントや保有株をブラウザーから直接変更しません。
+    */
+    const { data, error } = await db.rpc("trade_stock", {
+      p_stock_id: stockId,
+      p_side: side,
+      p_quantity: quantity
+    });
+
+    if (error) throw error;
+
+    if (!data?.success) {
+      throw new Error("注文結果を確認できませんでした。");
+    }
+
+    setMessage(
+      "trade-message",
+      `${actionName}が完了しました。取引額：${yen(data.total)}`,
+      true
+    );
+
+    await refreshDashboard();
+  } catch (error) {
+    console.error("売買エラー:", error);
+
+    setMessage(
+      "trade-message",
+      friendlyError(error, "注文に失敗しました。")
+    );
+  } finally {
+    button.disabled = false;
+    button.textContent = "注文を確定";
+  }
 }
 
 /* =====================================================
-エラー表示
+   エラー表示
 ===================================================== */
 
 function friendlyError(error, fallback) {
-const message = String(error?.message || "");
+  const message = String(error?.message || "");
 
-if (message.includes("Invalid login credentials")) {
-return "メールアドレスまたはパスワードが違います。";
+  if (message.includes("Invalid login credentials")) {
+    return "メールアドレスまたはパスワードが違います。";
+  }
+
+  if (message.includes("Email not confirmed")) {
+    return "メールアドレスの確認が必要です。";
+  }
+
+  if (message.includes("ポイントが不足")) {
+    return "ポイントが不足しています。";
+  }
+
+  if (message.includes("保有株数が不足")) {
+    return "売却する株数が保有株数を超えています。";
+  }
+
+  if (message.includes("ログインしてください")) {
+    return "ログイン状態を確認してください。";
+  }
+
+  if (
+    message.includes("relation") ||
+    message.includes("does not exist")
+  ) {
+    return "データベースのテーブルが見つかりません。Supabaseの設定を確認してください。";
+  }
+
+  if (
+    message.includes("permission denied") ||
+    message.includes("row-level security") ||
+    message.includes("violates row-level security")
+  ) {
+    return "データベースのアクセス権限を確認してください。";
+  }
+
+  if (
+    message.includes("Failed to fetch") ||
+    message.includes("NetworkError")
+  ) {
+    return "Supabaseに接続できません。URLとネットワークを確認してください。";
+  }
+
+  return message || fallback;
 }
 
-if (message.includes("Email not confirmed")) {
-return "メールアドレスの確認が必要です。SupabaseのAuthentication設定を確認してください。";
-}
+/* =====================================================
+   アプリ起動
+===================================================== */
 
-if (message.includes("ポイントが不足")) {
-return "ポイントが不足しています。";
-}
-
-if (message.includes("保有株数が不足")) {
-return "売却する株数が保有株数を超えています。";
-}
-
-if (message.includes("ログインしてください")) {
-return "ログイン状態を確認してください。";
-}
-
-if (
-message.includes("relation") ||
-message.includes("does not exist")
-) {
-return "データベースのテーブルが見つかりません。SupabaseのSQL設定を確認してください。";
-}
-
-if (
-message.includes("permission denied") ||
-message.includes("row-level security") ||
-message.includes("violates row-level security")
-) {
-return "データベースのアクセス権限を確認してください。";
-}
-
-if (message.includes("Failed to fetch")) {
-return "Supabaseに接続できません。Project URLとネットワークを確認してください。";
-}
-
-return message || fallback;
-}
-
-/* アプリを起動 */
 document.addEventListener("DOMContentLoaded", initializeApp);
