@@ -1,4 +1,3 @@
-```javascript
 /* =====================================================
    STOCK POINT
    Supabase接続・ログイン・株式売買・ランキング
@@ -1378,4 +1377,3 @@ function friendlyError(error, fallback) {
 ===================================================== */
 
 document.addEventListener("DOMContentLoaded", initializeApp);
-```
