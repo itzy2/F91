@@ -950,3 +950,247 @@ function friendlyError(error, fallback) {
 ===================================================== */
 
 document.addEventListener("DOMContentLoaded", initializeApp);
+
+/* =====================================================
+   会社別の株価グラフ
+   既存のログイン・売買処理には手を加えない
+===================================================== */
+
+let stockPriceChart = null;
+let stockChartRequestId = 0;
+
+function createStockChartPanel() {
+  if ($("stock-chart-panel")) return;
+
+  const stockTable = $("stocks-body");
+
+  if (!stockTable) return;
+
+  const tableCard = stockTable.closest(".market-card");
+
+  if (!tableCard) return;
+
+  const panel = document.createElement("section");
+  panel.id = "stock-chart-panel";
+  panel.className = "card";
+  panel.style.marginTop = "20px";
+
+  panel.innerHTML = `
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">STOCK PRICE HISTORY</p>
+        <h2>会社別・株価推移</h2>
+      </div>
+    </div>
+
+    <label for="stock-chart-select">会社を選択</label>
+    <select id="stock-chart-select"></select>
+
+    <p id="stock-chart-message" class="muted" role="status">
+      株価履歴を読み込みます。
+    </p>
+
+    <div style="position:relative;width:100%;height:320px;">
+      <canvas
+        id="stock-price-chart"
+        aria-label="選択した会社の株価推移"
+        role="img">
+      </canvas>
+    </div>
+  `;
+
+  tableCard.insertAdjacentElement("afterend", panel);
+
+  $("stock-chart-select").addEventListener("change", () => {
+    loadStockPriceChart();
+  });
+}
+
+function renderStockChartOptions() {
+  const select = $("stock-chart-select");
+
+  if (!select) return;
+
+  const previousValue = select.value;
+
+  select.innerHTML = stockList.map((stock) => `
+    <option value="${escapeHtml(stock.id)}">
+      ${escapeHtml(stock.name)}
+    </option>
+  `).join("");
+
+  if (
+    stockList.some(
+      (stock) => String(stock.id) === String(previousValue)
+    )
+  ) {
+    select.value = previousValue;
+  }
+
+  if (stockList.length > 0) {
+    loadStockPriceChart();
+  } else {
+    setStockChartMessage("表示できる銘柄がありません。");
+  }
+}
+
+function setStockChartMessage(message) {
+  const element = $("stock-chart-message");
+
+  if (element) {
+    element.textContent = message;
+  }
+}
+
+async function loadStockPriceChart() {
+  if (!db || !currentUser) return;
+
+  const select = $("stock-chart-select");
+
+  if (!select || !select.value) {
+    setStockChartMessage("表示する会社を選択してください。");
+    return;
+  }
+
+  if (typeof window.Chart !== "function") {
+    setStockChartMessage(
+      "グラフライブラリを読み込めません。ページを再読み込みしてください。"
+    );
+    return;
+  }
+
+  const requestId = ++stockChartRequestId;
+  const stockId = select.value;
+
+  const stock = stockList.find(
+    (item) => String(item.id) === String(stockId)
+  );
+
+  if (!stock) {
+    setStockChartMessage("銘柄が見つかりません。");
+    return;
+  }
+
+  setStockChartMessage(`${stock.name} の株価履歴を読み込んでいます…`);
+
+  try {
+    const { data, error } = await db
+      .from("stock_price_history")
+      .select("price, recorded_at")
+      .eq("stock_id", String(stockId))
+      .order("recorded_at", { ascending: true })
+      .limit(200);
+
+    if (error) throw error;
+
+    // 選択変更後に古いリクエストが返ってきても表示しない
+    if (requestId !== stockChartRequestId) return;
+
+    const history = data || [];
+
+    if (history.length === 0) {
+      if (stockPriceChart) {
+        stockPriceChart.destroy();
+        stockPriceChart = null;
+      }
+
+      setStockChartMessage(
+        `${stock.name} の株価履歴はまだありません。`
+      );
+      return;
+    }
+
+    const canvas = $("stock-price-chart");
+
+    if (!canvas) return;
+
+    const labels = history.map((item) => {
+      const date = new Date(item.recorded_at);
+
+      return Number.isNaN(date.getTime())
+        ? ""
+        : date.toLocaleString("ja-JP");
+    });
+
+    const prices = history.map(
+      (item) => Number(item.price)
+    );
+
+    if (stockPriceChart) {
+      stockPriceChart.destroy();
+      stockPriceChart = null;
+    }
+
+    stockPriceChart = new window.Chart(canvas, {
+      type: "line",
+      data: {
+        labels,
+        datasets: [{
+          label: `${stock.name} の株価（pt）`,
+          data: prices,
+          borderColor: "#2563eb",
+          backgroundColor: "rgba(37, 99, 235, 0.12)",
+          borderWidth: 2,
+          pointRadius: 3,
+          pointHoverRadius: 5,
+          fill: true,
+          tension: 0.2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+          intersect: false,
+          mode: "index"
+        },
+        plugins: {
+          legend: {
+            display: true
+          }
+        },
+        scales: {
+          x: {
+            title: {
+              display: true,
+              text: "記録日時"
+            }
+          },
+          y: {
+            beginAtZero: false,
+            title: {
+              display: true,
+              text: "株価（pt）"
+            }
+          }
+        }
+      }
+    });
+
+    setStockChartMessage(
+      `${stock.name}：${history.length}件の株価履歴を表示しています。`
+    );
+  } catch (error) {
+    console.error("株価グラフの読み込みエラー:", error);
+
+    if (requestId !== stockChartRequestId) return;
+
+    setStockChartMessage(
+      "株価履歴を読み込めませんでした。Supabaseのアクセス権限を確認してください。"
+    );
+  }
+}
+
+// 既存の描画処理に影響させず、グラフを更新する
+const originalRenderDashboardForChart = renderDashboard;
+
+renderDashboard = function () {
+  originalRenderDashboardForChart();
+
+  try {
+    createStockChartPanel();
+    renderStockChartOptions();
+  } catch (error) {
+    console.error("株価グラフの表示エラー:", error);
+  }
+};
