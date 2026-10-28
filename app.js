@@ -1,7 +1,6 @@
 /* =====================================================
    STOCK POINT
    Supabase接続・ログイン・株式売買・ランキング
-   会社別株価グラフ対応
 ===================================================== */
 
 const SUPABASE_URL = "https://qwswjasrorhstzueixcr.supabase.co";
@@ -19,8 +18,6 @@ let profileList = [];
 let transactionList = [];
 let refreshTimer = null;
 let isLoading = false;
-let stockChartLoading = false;
-let stockChartRequestId = 0;
 
 const $ = (id) => document.getElementById(id);
 
@@ -73,10 +70,7 @@ function getSelectedSide() {
 
 function getSelectedStock() {
   const stockId = $("trade-stock")?.value;
-
-  return stockList.find(
-    (stock) => String(stock.id) === String(stockId)
-  );
+  return stockList.find((stock) => String(stock.id) === String(stockId));
 }
 
 function getMyHolding(stockId) {
@@ -104,12 +98,10 @@ async function initializeApp() {
 
   if (!isConfigured) {
     $("config-warning")?.classList.remove("hidden");
-
     setMessage(
       "login-message",
       "Supabaseの接続設定を確認してください。"
     );
-
     return;
   }
 
@@ -118,7 +110,6 @@ async function initializeApp() {
       "login-message",
       "Supabaseライブラリを読み込めません。index.htmlを確認してください。"
     );
-
     console.error("Supabase JavaScriptライブラリがありません。");
     return;
   }
@@ -128,22 +119,13 @@ async function initializeApp() {
     SUPABASE_PUBLISHABLE_KEY
   );
 
-  // 株価グラフの表示領域を作成
-  createStockChartPanel();
-
   loginForm.addEventListener("submit", handleLogin);
 
   $("logout-btn")?.addEventListener("click", handleLogout);
-
-  $("refresh-btn")?.addEventListener(
-    "click",
-    () => refreshDashboard(true)
-  );
-
+  $("refresh-btn")?.addEventListener("click", () => refreshDashboard(true));
   $("trade-form")?.addEventListener("submit", handleTrade);
 
   $("trade-stock")?.addEventListener("change", updateEstimate);
-
   $("quantity")?.addEventListener("input", updateEstimate);
 
   document.querySelectorAll('input[name="side"]').forEach((radio) => {
@@ -160,7 +142,6 @@ async function initializeApp() {
     }
   } catch (error) {
     console.error("ログイン状態の確認に失敗しました:", error);
-
     setMessage(
       "login-message",
       friendlyError(error, "ログイン状態を確認できませんでした。")
@@ -237,7 +218,6 @@ async function handleLogout() {
   if (!db) return;
 
   const button = $("logout-btn");
-
   if (button) button.disabled = true;
 
   try {
@@ -251,16 +231,11 @@ async function handleLogout() {
     currentUser = null;
     currentProfile = null;
 
-    stockChartRequestId++;
-    stockChartLoading = false;
-
     clearDashboard();
     setLoggedInView(false);
-
     setMessage("login-message", "ログアウトしました。", true);
   } catch (error) {
     console.error("ログアウトエラー:", error);
-
     showGlobalMessage(
       friendlyError(error, "ログアウトできませんでした。"),
       true
@@ -282,12 +257,7 @@ async function handleSession(session) {
     clearInterval(refreshTimer);
     refreshTimer = null;
 
-    stockChartRequestId++;
-    stockChartLoading = false;
-
-    clearDashboard();
     setLoggedInView(false);
-
     return;
   }
 
@@ -300,8 +270,6 @@ async function handleSession(session) {
   }
 
   currentUser = session.user;
-  currentProfile = null;
-
   setLoggedInView(true);
 
   if ($("whoami")) {
@@ -341,7 +309,6 @@ async function handleSession(session) {
     await refreshDashboard();
 
     clearInterval(refreshTimer);
-
     refreshTimer = setInterval(
       () => refreshDashboard(),
       REFRESH_INTERVAL
@@ -361,7 +328,6 @@ function clearDashboard() {
   holdingList = [];
   profileList = [];
   transactionList = [];
-
   currentProfile = null;
 
   if ($("whoami")) $("whoami").textContent = "";
@@ -386,23 +352,6 @@ function clearDashboard() {
   if ($("holdings-value")) $("holdings-value").textContent = "—";
   if ($("total-value")) $("total-value").textContent = "—";
   if ($("profit-value")) $("profit-value").textContent = "—";
-
-  if ($("stock-chart-current")) {
-    $("stock-chart-current").textContent = "";
-  }
-
-  if ($("stock-chart-status")) {
-    $("stock-chart-status").textContent = "ログインしてください。";
-  }
-
-  if ($("stock-chart-svg")) {
-    $("stock-chart-svg").innerHTML = "";
-  }
-
-  if ($("stock-chart-select")) {
-    $("stock-chart-select").innerHTML =
-      '<option value="">ログインしてください</option>';
-  }
 }
 
 /* =====================================================
@@ -557,15 +506,10 @@ function renderDashboard() {
   renderHistory(stockById);
 
   updateEstimate();
-
-  // 会社別株価グラフを更新
-  loadStockChart();
 }
 
 function renderStockTable(myHoldings) {
   const body = $("stocks-body");
-
-  if (!body) return;
 
   if (!stockList.length) {
     body.textContent = "株式データがありません。";
@@ -583,7 +527,6 @@ function renderStockTable(myHoldings) {
     const price = Number(stock.price);
     const previous = Number(stock.previous_price);
     const change = price - previous;
-
     const percent = previous > 0
       ? (change / previous) * 100
       : 0;
@@ -612,17 +555,13 @@ function renderStockTable(myHoldings) {
             ${percent > 0 ? "+" : ""}${percent.toFixed(2)}%
           </span>
         </td>
-        <td>
-          ${Number(holdingMap[String(stock.id)] || 0).toLocaleString("ja-JP")} 株
-        </td>
+        <td>${Number(holdingMap[String(stock.id)] || 0).toLocaleString("ja-JP")} 株</td>
         <td>
           <div class="table-action">
             <button class="buy-shortcut" type="button"
               data-side="buy" data-stock="${escapeHtml(stock.id)}">購入</button>
             <button class="sell-shortcut" type="button"
               data-side="sell" data-stock="${escapeHtml(stock.id)}">売却</button>
-            <button class="chart-shortcut" type="button"
-              data-chart-stock="${escapeHtml(stock.id)}">グラフ</button>
           </div>
         </td>
       </tr>
@@ -647,29 +586,10 @@ function renderStockTable(myHoldings) {
       });
     });
   });
-
-  body.querySelectorAll("button[data-chart-stock]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const select = $("stock-chart-select");
-
-      if (select) {
-        select.value = button.dataset.chartStock;
-        loadStockChart();
-
-        $("stock-chart-panel")?.scrollIntoView({
-          behavior: "smooth",
-          block: "start"
-        });
-      }
-    });
-  });
 }
 
 function renderStockSelect() {
   const select = $("trade-stock");
-
-  if (!select) return;
-
   const previousValue = select.value;
 
   select.innerHTML = stockList.map((stock) => `
@@ -689,8 +609,6 @@ function renderStockSelect() {
 
 function renderHoldingsTable(myHoldings) {
   const body = $("holdings-body");
-
-  if (!body) return;
 
   const nonZero = myHoldings.filter(
     (holding) => Number(holding.quantity) > 0
@@ -724,10 +642,6 @@ function renderHoldingsTable(myHoldings) {
 }
 
 function renderRanking(stockById) {
-  const list = $("ranking-list");
-
-  if (!list) return;
-
   const ranking = profileList.map((profile) => {
     const value = holdingList
       .filter(
@@ -753,11 +667,11 @@ function renderRanking(stockById) {
   }).sort((a, b) => b.total - a.total);
 
   if (!ranking.length) {
-    list.textContent = "ランキングデータがありません。";
+    $("ranking-list").textContent = "ランキングデータがありません。";
     return;
   }
 
-  list.innerHTML = ranking.map((item, index) => `
+  $("ranking-list").innerHTML = ranking.map((item, index) => `
     <div class="ranking-item">
       <div class="rank-number ${index === 0 ? "first" : ""}">
         ${index + 1}
@@ -779,8 +693,6 @@ function renderRanking(stockById) {
 function renderHistory(stockById) {
   const body = $("history-body");
 
-  if (!body) return;
-
   if (!transactionList.length) {
     body.textContent = "取引履歴はまだありません。";
     return;
@@ -795,7 +707,6 @@ function renderHistory(stockById) {
     const profile = profileById[String(transaction.user_id)];
 
     const date = new Date(transaction.created_at);
-
     const dateText = Number.isNaN(date.getTime())
       ? "日時不明"
       : date.toLocaleString("ja-JP");
@@ -891,6 +802,10 @@ async function handleTrade(event) {
     return;
   }
 
+  /*
+    売却時は保有株数をデータベースから再取得します。
+    画面に残った古い保有株数だけで判定しません。
+  */
   if (side === "sell") {
     try {
       const { data: holding, error } = await db
@@ -911,7 +826,6 @@ async function handleTrade(event) {
           "trade-message",
           `保有株数は${actualQuantity.toLocaleString("ja-JP")}株です。売却株数を確認してください。`
         );
-
         return;
       }
     } catch (error) {
@@ -921,7 +835,6 @@ async function handleTrade(event) {
         "trade-message",
         friendlyError(error, "保有株数を確認できませんでした。")
       );
-
       return;
     }
   }
@@ -938,15 +851,16 @@ async function handleTrade(event) {
   if (!confirmed) return;
 
   const button = $("trade-submit");
-
-  if (button) {
-    button.disabled = true;
-    button.textContent = "注文処理中…";
-  }
+  button.disabled = true;
+  button.textContent = "注文処理中…";
 
   setMessage("trade-message", "");
 
   try {
+    /*
+      最終的な売買処理はSupabaseのtrade_stock関数で実行します。
+      ポイントや保有株をブラウザーから直接変更しません。
+    */
     const { data, error } = await db.rpc("trade_stock", {
       p_stock_id: stockId,
       p_side: side,
@@ -974,350 +888,9 @@ async function handleTrade(event) {
       friendlyError(error, "注文に失敗しました。")
     );
   } finally {
-    if (button) {
-      button.disabled = false;
-      button.textContent = "注文を確定";
-    }
+    button.disabled = false;
+    button.textContent = "注文を確定";
   }
-}
-
-/* =====================================================
-   会社別・株価グラフ
-===================================================== */
-
-function createStockChartPanel() {
-  if ($("stock-chart-panel")) return;
-
-  const stocksBody = $("stocks-body");
-  const table = stocksBody?.closest("table");
-
-  if (!table || !table.parentElement) {
-    console.error("株式一覧テーブルが見つかりません。");
-    return;
-  }
-
-  const panel = document.createElement("section");
-
-  panel.id = "stock-chart-panel";
-
-  panel.style.cssText = `
-    margin: 24px 0;
-    padding: 20px;
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 16px;
-    color: #172033;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.04);
-  `;
-
-  panel.innerHTML = `
-    <h2 style="margin:0 0 8px;font-size:21px;">
-      会社別 株価チャート
-    </h2>
-
-    <p style="margin:0 0 16px;color:#64748b;font-size:13px;">
-      銘柄を選択して、記録された株価の推移を確認できます。
-    </p>
-
-    <label for="stock-chart-select"
-      style="display:block;margin-bottom:6px;font-weight:bold;">
-      会社・銘柄
-    </label>
-
-    <select id="stock-chart-select"
-      style="width:100%;max-width:360px;padding:10px;border:1px solid #cbd5e1;border-radius:8px;">
-      <option value="">銘柄を読み込み中...</option>
-    </select>
-
-    <div id="stock-chart-current"
-      style="margin-top:18px;font-size:20px;font-weight:bold;">
-    </div>
-
-    <div id="stock-chart-status"
-      role="status"
-      style="margin-top:10px;color:#64748b;font-size:14px;">
-      株価履歴を読み込みます。
-    </div>
-
-    <div style="width:100%;overflow-x:auto;margin-top:12px;">
-      <svg id="stock-chart-svg"
-        viewBox="0 0 720 300"
-        role="img"
-        aria-label="選択した銘柄の株価推移グラフ"
-        style="display:block;width:100%;min-width:320px;height:auto;">
-      </svg>
-    </div>
-
-    <p style="margin:12px 0 0;color:#64748b;font-size:12px;">
-      ※ グラフは記録済みの株価履歴を表示します。
-    </p>
-  `;
-
-  table.parentElement.insertBefore(panel, table);
-
-  $("stock-chart-select").addEventListener("change", () => {
-    loadStockChart();
-  });
-}
-
-function updateStockChartSelect() {
-  const select = $("stock-chart-select");
-
-  if (!select) return;
-
-  const previousValue = select.value;
-
-  select.innerHTML = `
-    <option value="">銘柄を選択してください</option>
-    ${stockList.map((stock) => `
-      <option value="${escapeHtml(stock.id)}">
-        ${escapeHtml(stock.name)}
-      </option>
-    `).join("")}
-  `;
-
-  const previousStillExists = stockList.some(
-    (stock) => String(stock.id) === String(previousValue)
-  );
-
-  if (previousStillExists) {
-    select.value = previousValue;
-  } else if (stockList.length > 0) {
-    select.value = String(stockList[0].id);
-  }
-}
-
-async function loadStockChart() {
-  if (!db || !currentUser) return;
-
-  const select = $("stock-chart-select");
-  const status = $("stock-chart-status");
-  const svg = $("stock-chart-svg");
-  const current = $("stock-chart-current");
-
-  if (!select || !status || !svg || !current) return;
-
-  updateStockChartSelect();
-
-  const stockId = select.value;
-
-  if (!stockId) {
-    status.textContent = "表示する銘柄がありません。";
-    svg.innerHTML = "";
-    current.textContent = "";
-    return;
-  }
-
-  const stock = stockList.find(
-    (item) => String(item.id) === String(stockId)
-  );
-
-  if (!stock) {
-    status.textContent = "銘柄情報を取得できませんでした。";
-    return;
-  }
-
-  current.textContent = `${stock.name}：${yen(stock.price)}`;
-
-  // 連続操作時に、古い応答で新しいグラフを上書きしない
-  const requestId = ++stockChartRequestId;
-
-  status.textContent = "株価履歴を読み込み中...";
-
-  try {
-    const { data, error } = await db
-      .from("stock_price_history")
-      .select("price, recorded_at")
-      .eq("stock_id", stockId)
-      .order("recorded_at", { ascending: true })
-      .limit(100);
-
-    if (requestId !== stockChartRequestId) return;
-
-    if (error) throw error;
-
-    const history = data || [];
-
-    if (history.length === 0) {
-      svg.innerHTML = "";
-
-      status.textContent =
-        "まだ株価履歴がありません。株価が更新されると記録が追加されます。";
-
-      return;
-    }
-
-    renderStockChart(history);
-
-    status.textContent =
-      `${history.length}件の株価履歴を表示しています。`;
-  } catch (error) {
-    if (requestId !== stockChartRequestId) return;
-
-    console.error("株価グラフの読み込みエラー:", error);
-
-    svg.innerHTML = "";
-
-    status.textContent =
-      "株価履歴を取得できませんでした。Supabaseのテーブル権限を確認してください。";
-  }
-}
-
-function renderStockChart(history) {
-  const svg = $("stock-chart-svg");
-
-  if (!svg) return;
-
-  const validHistory = history
-    .map((item) => ({
-      price: Number(item.price),
-      recordedAt: new Date(item.recorded_at)
-    }))
-    .filter((item) =>
-      Number.isFinite(item.price) &&
-      Number.isFinite(item.recordedAt.getTime())
-    );
-
-  if (!validHistory.length) {
-    svg.innerHTML = "";
-    return;
-  }
-
-  const width = 720;
-  const height = 300;
-
-  const paddingLeft = 76;
-  const paddingRight = 24;
-  const paddingTop = 28;
-  const paddingBottom = 48;
-
-  const chartWidth = width - paddingLeft - paddingRight;
-  const chartHeight = height - paddingTop - paddingBottom;
-
-  const prices = validHistory.map((item) => item.price);
-
-  const rawMin = Math.min(...prices);
-  const rawMax = Math.max(...prices);
-
-  // 株価がすべて同じでもグラフを表示できるようにする
-  const spread = rawMax - rawMin;
-  const padding = spread > 0
-    ? spread * 0.15
-    : Math.max(rawMax * 0.05, 1);
-
-  const minPrice = Math.max(0, rawMin - padding);
-  const maxPrice = rawMax + padding;
-  const priceRange = maxPrice - minPrice || 1;
-
-  const points = validHistory.map((item, index) => {
-    const x = validHistory.length === 1
-      ? paddingLeft + chartWidth / 2
-      : paddingLeft +
-        (index / (validHistory.length - 1)) * chartWidth;
-
-    const y = paddingTop +
-      ((maxPrice - item.price) / priceRange) * chartHeight;
-
-    return { x, y, price: item.price, recordedAt: item.recordedAt };
-  });
-
-  const gridLines = 4;
-  let gridSvg = "";
-
-  for (let i = 0; i <= gridLines; i++) {
-    const y = paddingTop + (chartHeight / gridLines) * i;
-    const price = maxPrice - (priceRange / gridLines) * i;
-
-    gridSvg += `
-      <line
-        x1="${paddingLeft}"
-        y1="${y}"
-        x2="${width - paddingRight}"
-        y2="${y}"
-        stroke="#e2e8f0"
-        stroke-width="1"
-      />
-      <text
-        x="${paddingLeft - 10}"
-        y="${y + 4}"
-        text-anchor="end"
-        font-size="12"
-        fill="#64748b"
-      >${Math.round(price).toLocaleString("ja-JP")}</text>
-    `;
-  }
-
-  const linePoints = points
-    .map((point) => `${point.x},${point.y}`)
-    .join(" ");
-
-  const first = points[0];
-  const last = points[points.length - 1];
-
-  const areaPoints = [
-    `${first.x},${paddingTop + chartHeight}`,
-    ...points.map((point) => `${point.x},${point.y}`),
-    `${last.x},${paddingTop + chartHeight}`
-  ].join(" ");
-
-  const startDate = validHistory[0].recordedAt.toLocaleDateString("ja-JP");
-  const endDate = validHistory[validHistory.length - 1]
-    .recordedAt.toLocaleDateString("ja-JP");
-
-  const lastPrice = validHistory[validHistory.length - 1].price;
-  const firstPrice = validHistory[0].price;
-  const trendColor = lastPrice >= firstPrice ? "#16a34a" : "#dc2626";
-
-  const circles = points.map((point) => `
-    <circle
-      cx="${point.x}"
-      cy="${point.y}"
-      r="3.5"
-      fill="${trendColor}"
-      stroke="#ffffff"
-      stroke-width="1.5"
-    >
-      <title>${point.recordedAt.toLocaleString("ja-JP")}：${yen(point.price)}</title>
-    </circle>
-  `).join("");
-
-  svg.innerHTML = `
-    <rect width="${width}" height="${height}" fill="#ffffff" />
-
-    ${gridSvg}
-
-    <polygon
-      points="${areaPoints}"
-      fill="${trendColor}"
-      opacity="0.10"
-    />
-
-    <polyline
-      points="${linePoints}"
-      fill="none"
-      stroke="${trendColor}"
-      stroke-width="3"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-    />
-
-    ${circles}
-
-    <text
-      x="${paddingLeft}"
-      y="${height - 16}"
-      font-size="12"
-      fill="#64748b"
-    >${escapeHtml(startDate)}</text>
-
-    <text
-      x="${width - paddingRight}"
-      y="${height - 16}"
-      text-anchor="end"
-      font-size="12"
-      fill="#64748b"
-    >${escapeHtml(endDate)}</text>
-  `;
 }
 
 /* =====================================================
