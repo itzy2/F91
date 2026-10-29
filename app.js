@@ -1194,3 +1194,135 @@ renderDashboard = function () {
     console.error("株価グラフの表示エラー:", error);
   }
 };
+
+/* =====================================================
+   STOCK POINT
+   イベント・メンテナンス予定表示
+===================================================== */
+
+async function loadEvents() {
+  const eventElement = document.getElementById("next-event");
+  const maintenanceElement = document.getElementById("next-maintenance");
+  const listElement = document.getElementById("event-list");
+
+  if (!eventElement || !maintenanceElement || !listElement) {
+    return;
+  }
+
+  eventElement.textContent = "予定を読み込み中...";
+  maintenanceElement.textContent = "予定を読み込み中...";
+  listElement.textContent = "予定を読み込み中...";
+
+  try {
+    const { data, error } = await db
+      .from("events")
+      .select("id, title, description, event_type, start_at, end_at")
+      .eq("is_published", true)
+      .order("start_at", { ascending: true });
+
+    if (error) {
+      throw error;
+    }
+
+    const now = Date.now();
+
+    const events = (data || []).filter(event => {
+      return !event.end_at || new Date(event.end_at).getTime() >= now;
+    });
+
+    const formatDate = value => {
+      return new Intl.DateTimeFormat("ja-JP", {
+        timeZone: "Asia/Tokyo",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        weekday: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+        hourCycle: "h23"
+      }).format(new Date(value));
+    };
+
+    const getStatus = event => {
+      const start = new Date(event.start_at).getTime();
+      const end = event.end_at
+        ? new Date(event.end_at).getTime()
+        : null;
+
+      if (start > now) {
+        return "開催前";
+      }
+
+      if (end !== null && end < now) {
+        return "終了";
+      }
+
+      return event.event_type === "maintenance"
+        ? "作業中"
+        : "開催中";
+    };
+
+    const escapeHTML = value => {
+      return String(value ?? "").replace(/[&<>"']/g, char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      })[char]);
+    };
+
+    const renderEvent = event => {
+      const icon = event.event_type === "maintenance" ? "🔧" : "🎉";
+      const date = formatDate(event.start_at);
+      const endDate = event.end_at
+        ? formatDate(event.end_at)
+        : "";
+
+      return `
+        <article class="event-item">
+          <strong>${icon} ${escapeHTML(event.title)}</strong>
+          <div class="event-date">
+            開始：${escapeHTML(date)}
+          </div>
+          ${
+            endDate
+              ? `<div class="event-date">終了：${escapeHTML(endDate)}</div>`
+              : ""
+          }
+          <div>${escapeHTML(event.description)}</div>
+          <span class="event-status">
+            ${escapeHTML(getStatus(event))}
+          </span>
+        </article>
+      `;
+    };
+
+    const nextEvent = events.find(event =>
+      event.event_type === "event"
+    );
+
+    const nextMaintenance = events.find(event =>
+      event.event_type === "maintenance"
+    );
+
+    eventElement.innerHTML = nextEvent
+      ? renderEvent(nextEvent)
+      : '<p class="event-empty">現在、予定されているイベントはありません。</p>';
+
+    maintenanceElement.innerHTML = nextMaintenance
+      ? renderEvent(nextMaintenance)
+      : '<p class="event-empty">現在、予定されているメンテナンスはありません。</p>';
+
+    listElement.innerHTML = events.length
+      ? events.map(renderEvent).join("")
+      : '<p class="event-empty">現在、公開中の予定はありません。</p>';
+
+  } catch (error) {
+    console.error("イベント取得エラー:", error);
+
+    eventElement.textContent = "イベントを取得できませんでした。";
+    maintenanceElement.textContent = "メンテナンス予定を取得できませんでした。";
+    listElement.textContent = "予定を取得できませんでした。";
+  }
+}
