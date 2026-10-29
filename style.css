@@ -751,3 +751,59 @@ footer {
     flex-direction: column;
   }
 }
+
+/* イベント・メンテナンス予定 */
+.events-section {
+  margin: 24px 0;
+  padding: 20px;
+  border-radius: 16px;
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--border-color, #dddddd);
+}
+
+.events-section h2 {
+  margin-top: 0;
+  margin-bottom: 20px;
+}
+
+.event-featured {
+  margin-top: 16px;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--surface-bg, #f5f7fa);
+}
+
+.event-featured h3 {
+  margin-top: 0;
+  font-size: 16px;
+}
+
+.event-item {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-color, #dddddd);
+}
+
+.event-item:last-child {
+  border-bottom: none;
+}
+
+.event-date {
+  font-size: 13px;
+  color: var(--muted-color, #666666);
+  margin-top: 6px;
+}
+
+.event-status {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: #e8f2ff;
+  color: #1756a9;
+  font-size: 12px;
+}
+
+.event-empty {
+  color: var(--muted-color, #666666);
+  font-size: 14px;
+}
