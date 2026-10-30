@@ -952,25 +952,25 @@ function friendlyError(error, fallback) {
 document.addEventListener("DOMContentLoaded", initializeApp);
 
 /* =====================================================
-   会社別の株価グラフ
-   既存のログイン・売買処理には手を加えない
+   会社別の株価グラフ（自動更新対応版）
 ===================================================== */
 
 let stockPriceChart = null;
 let stockChartRequestId = 0;
 
+const STOCK_CHART_REFRESH_INTERVAL = 30000;
+
 function createStockChartPanel() {
   if ($("stock-chart-panel")) return;
 
   const stockTable = $("stocks-body");
-
   if (!stockTable) return;
 
   const tableCard = stockTable.closest(".market-card");
-
   if (!tableCard) return;
 
   const panel = document.createElement("section");
+
   panel.id = "stock-chart-panel";
   panel.className = "card";
   panel.style.marginTop = "20px";
@@ -984,16 +984,22 @@ function createStockChartPanel() {
     </div>
 
     <label for="stock-chart-select">会社を選択</label>
+
     <select id="stock-chart-select"></select>
 
-    <p id="stock-chart-message" class="muted" role="status">
+    <p id="stock-chart-message" class="muted">
       株価履歴を読み込みます。
+    </p>
+
+    <p id="stock-chart-updated"
+       class="muted">
+       最終更新：--
     </p>
 
     <div style="position:relative;width:100%;height:320px;">
       <canvas
         id="stock-price-chart"
-        aria-label="選択した会社の株価推移"
+        aria-label="会社別株価推移"
         role="img">
       </canvas>
     </div>
@@ -1001,19 +1007,19 @@ function createStockChartPanel() {
 
   tableCard.insertAdjacentElement("afterend", panel);
 
-  $("stock-chart-select").addEventListener("change", () => {
-    loadStockPriceChart();
-  });
+  $("stock-chart-select").addEventListener(
+    "change",
+    loadStockPriceChart
+  );
 }
 
 function renderStockChartOptions() {
   const select = $("stock-chart-select");
-
   if (!select) return;
 
   const previousValue = select.value;
 
-  select.innerHTML = stockList.map((stock) => `
+  select.innerHTML = stockList.map(stock => `
     <option value="${escapeHtml(stock.id)}">
       ${escapeHtml(stock.name)}
     </option>
@@ -1021,7 +1027,7 @@ function renderStockChartOptions() {
 
   if (
     stockList.some(
-      (stock) => String(stock.id) === String(previousValue)
+      stock => String(stock.id) === String(previousValue)
     )
   ) {
     select.value = previousValue;
@@ -1042,19 +1048,35 @@ function setStockChartMessage(message) {
   }
 }
 
+function formatStockChartDate(value) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "日時不明";
+  }
+
+  return new Intl.DateTimeFormat("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23"
+  }).format(date);
+}
+
 async function loadStockPriceChart() {
   if (!db || !currentUser) return;
 
   const select = $("stock-chart-select");
 
-  if (!select || !select.value) {
-    setStockChartMessage("表示する会社を選択してください。");
-    return;
-  }
+  if (!select || !select.value) return;
 
   if (typeof window.Chart !== "function") {
     setStockChartMessage(
-      "グラフライブラリを読み込めません。ページを再読み込みしてください。"
+      "グラフライブラリを読み込めません。"
     );
     return;
   }
@@ -1063,266 +1085,184 @@ async function loadStockPriceChart() {
   const stockId = select.value;
 
   const stock = stockList.find(
-    (item) => String(item.id) === String(stockId)
+    item => String(item.id) === String(stockId)
   );
 
-  if (!stock) {
-    setStockChartMessage("銘柄が見つかりません。");
-    return;
-  }
+  if (!stock) return;
 
-  setStockChartMessage(`${stock.name} の株価履歴を読み込んでいます…`);
+  setStockChartMessage(
+    `${stock.name} の株価履歴を取得中...`
+  );
 
   try {
+
+    /*
+      重要：
+      新しい履歴から200件取得し、
+      その後、古い順に並べ直します。
+
+      以前の ascending: true では、
+      古い200件だけ取得してしまう可能性がありました。
+    */
+
     const { data, error } = await db
       .from("stock_price_history")
       .select("price, recorded_at")
       .eq("stock_id", String(stockId))
-      .order("recorded_at", { ascending: true })
+      .order("recorded_at", {
+        ascending: false
+      })
       .limit(200);
 
     if (error) throw error;
 
-    // 選択変更後に古いリクエストが返ってきても表示しない
     if (requestId !== stockChartRequestId) return;
 
-    const history = data || [];
+    const history = (data || []).reverse();
 
     if (history.length === 0) {
+
       if (stockPriceChart) {
         stockPriceChart.destroy();
         stockPriceChart = null;
       }
 
       setStockChartMessage(
-        `${stock.name} の株価履歴はまだありません。`
+        `${stock.name} の株価履歴はありません。`
       );
+
       return;
     }
 
     const canvas = $("stock-price-chart");
-
     if (!canvas) return;
 
-    const labels = history.map((item) => {
-      const date = new Date(item.recorded_at);
+    const labels = history.map(item =>
+      formatStockChartDate(item.recorded_at)
+    );
 
-      return Number.isNaN(date.getTime())
-        ? ""
-        : date.toLocaleString("ja-JP");
-    });
-
-    const prices = history.map(
-      (item) => Number(item.price)
+    const prices = history.map(item =>
+      Number(item.price)
     );
 
     if (stockPriceChart) {
-      stockPriceChart.destroy();
-      stockPriceChart = null;
-    }
 
-    stockPriceChart = new window.Chart(canvas, {
-      type: "line",
-      data: {
-        labels,
-        datasets: [{
-          label: `${stock.name} の株価（pt）`,
-          data: prices,
-          borderColor: "#2563eb",
-          backgroundColor: "rgba(37, 99, 235, 0.12)",
-          borderWidth: 2,
-          pointRadius: 3,
-          pointHoverRadius: 5,
-          fill: true,
-          tension: 0.2
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: {
-          intersect: false,
-          mode: "index"
+      stockPriceChart.data.labels = labels;
+
+      stockPriceChart.data.datasets[0].label =
+        `${stock.name} の株価（pt）`;
+
+      stockPriceChart.data.datasets[0].data = prices;
+
+      stockPriceChart.update("none");
+
+    } else {
+
+      stockPriceChart = new window.Chart(canvas, {
+        type: "line",
+
+        data: {
+          labels,
+
+          datasets: [{
+            label: `${stock.name} の株価（pt）`,
+            data: prices,
+
+            borderColor: "#2563eb",
+            backgroundColor: "rgba(37, 99, 235, 0.12)",
+
+            borderWidth: 2,
+            pointRadius: 3,
+            pointHoverRadius: 5,
+
+            fill: true,
+            tension: 0.2
+          }]
         },
-        plugins: {
-          legend: {
-            display: true
-          }
-        },
-        scales: {
-          x: {
-            title: {
-              display: true,
-              text: "記録日時"
+
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+
+          animation: false,
+
+          interaction: {
+            intersect: false,
+            mode: "index"
+          },
+
+          plugins: {
+            legend: {
+              display: true
             }
           },
-          y: {
-            beginAtZero: false,
-            title: {
-              display: true,
-              text: "株価（pt）"
+
+          scales: {
+            x: {
+              title: {
+                display: true,
+                text: "記録日時（日本時間）"
+              }
+            },
+
+            y: {
+              beginAtZero: false,
+
+              title: {
+                display: true,
+                text: "株価（pt）"
+              }
             }
           }
         }
-      }
-    });
+      });
+    }
+
+    // 最新の履歴日時
+    const latest = history[history.length - 1];
+
+    const updatedElement = $("stock-chart-updated");
+
+    if (updatedElement) {
+      updatedElement.textContent =
+        `最新履歴：${formatStockChartDate(latest.recorded_at)}`;
+    }
 
     setStockChartMessage(
-      `${stock.name}：${history.length}件の株価履歴を表示しています。`
+      `${stock.name}：最新${history.length}件の株価履歴を表示中`
     );
+
   } catch (error) {
-    console.error("株価グラフの読み込みエラー:", error);
+
+    console.error(
+      "株価グラフの読み込みエラー:",
+      error
+    );
 
     if (requestId !== stockChartRequestId) return;
 
     setStockChartMessage(
-      "株価履歴を読み込めませんでした。Supabaseのアクセス権限を確認してください。"
+      "株価履歴を取得できませんでした。"
     );
   }
 }
 
-// 既存の描画処理に影響させず、グラフを更新する
+// ダッシュボード更新時にグラフも更新
 const originalRenderDashboardForChart = renderDashboard;
 
 renderDashboard = function () {
+
   originalRenderDashboardForChart();
 
   try {
     createStockChartPanel();
     renderStockChartOptions();
+
   } catch (error) {
-    console.error("株価グラフの表示エラー:", error);
+
+    console.error(
+      "株価グラフ表示エラー:",
+      error
+    );
   }
 };
-
-/* =====================================================
-   STOCK POINT
-   イベント・メンテナンス予定表示
-===================================================== */
-
-async function loadEvents() {
-  const eventElement = document.getElementById("next-event");
-  const maintenanceElement = document.getElementById("next-maintenance");
-  const listElement = document.getElementById("event-list");
-
-  if (!eventElement || !maintenanceElement || !listElement) {
-    return;
-  }
-
-  eventElement.textContent = "予定を読み込み中...";
-  maintenanceElement.textContent = "予定を読み込み中...";
-  listElement.textContent = "予定を読み込み中...";
-
-  try {
-    const { data, error } = await db
-      .from("events")
-      .select("id, title, description, event_type, start_at, end_at")
-      .eq("is_published", true)
-      .order("start_at", { ascending: true });
-
-    if (error) {
-      throw error;
-    }
-
-    const now = Date.now();
-
-    const events = (data || []).filter(event => {
-      return !event.end_at || new Date(event.end_at).getTime() >= now;
-    });
-
-    const formatDate = value => {
-      return new Intl.DateTimeFormat("ja-JP", {
-        timeZone: "Asia/Tokyo",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        weekday: "short",
-        hour: "2-digit",
-        minute: "2-digit",
-        hourCycle: "h23"
-      }).format(new Date(value));
-    };
-
-    const getStatus = event => {
-      const start = new Date(event.start_at).getTime();
-      const end = event.end_at
-        ? new Date(event.end_at).getTime()
-        : null;
-
-      if (start > now) {
-        return "開催前";
-      }
-
-      if (end !== null && end < now) {
-        return "終了";
-      }
-
-      return event.event_type === "maintenance"
-        ? "作業中"
-        : "開催中";
-    };
-
-    const escapeHTML = value => {
-      return String(value ?? "").replace(/[&<>"']/g, char => ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#39;"
-      })[char]);
-    };
-
-    const renderEvent = event => {
-      const icon = event.event_type === "maintenance" ? "🔧" : "🎉";
-      const date = formatDate(event.start_at);
-      const endDate = event.end_at
-        ? formatDate(event.end_at)
-        : "";
-
-      return `
-        <article class="event-item">
-          <strong>${icon} ${escapeHTML(event.title)}</strong>
-          <div class="event-date">
-            開始：${escapeHTML(date)}
-          </div>
-          ${
-            endDate
-              ? `<div class="event-date">終了：${escapeHTML(endDate)}</div>`
-              : ""
-          }
-          <div>${escapeHTML(event.description)}</div>
-          <span class="event-status">
-            ${escapeHTML(getStatus(event))}
-          </span>
-        </article>
-      `;
-    };
-
-    const nextEvent = events.find(event =>
-      event.event_type === "event"
-    );
-
-    const nextMaintenance = events.find(event =>
-      event.event_type === "maintenance"
-    );
-
-    eventElement.innerHTML = nextEvent
-      ? renderEvent(nextEvent)
-      : '<p class="event-empty">現在、予定されているイベントはありません。</p>';
-
-    maintenanceElement.innerHTML = nextMaintenance
-      ? renderEvent(nextMaintenance)
-      : '<p class="event-empty">現在、予定されているメンテナンスはありません。</p>';
-
-    listElement.innerHTML = events.length
-      ? events.map(renderEvent).join("")
-      : '<p class="event-empty">現在、公開中の予定はありません。</p>';
-
-  } catch (error) {
-    console.error("イベント取得エラー:", error);
-
-    eventElement.textContent = "イベントを取得できませんでした。";
-    maintenanceElement.textContent = "メンテナンス予定を取得できませんでした。";
-    listElement.textContent = "予定を取得できませんでした。";
-  }
-}
